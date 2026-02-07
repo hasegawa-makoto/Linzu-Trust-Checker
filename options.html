@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Linzu Trust Checker - Settings</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body { width: 100%; max-width: 600px; margin: 0 auto; padding: 40px; }
+        .setting-group { margin-bottom: 24px; padding: 24px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        h2 { color: #0056b3; font-size: 20px; margin-top: 0; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; }
+        input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; margin-bottom: 8px; }
+        .explanation { font-size: 13px; color: #666; line-height: 1.5; margin-bottom: 16px; }
+        #saveButton { width: auto; min-width: 120px; }
+        .status-message { margin-top: 12px; font-weight: bold; font-size: 14px; min-height: 20px; }
+        .success { color: #2e7d32; }
+        .error { color: #d32f2f; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Linzu Settings</h1>
+    </header>
+
+    <div class="setting-group">
+        <h2>AI視覚分析の設定 (Gemini API)</h2>
+        <p class="explanation">
+            メタデータが削除された画像（SNSなど）でも、AIが直接画像を分析することで生成AIの特徴を検出できます。<br>
+            この機能を利用するには、GoogleのGemini APIキーが必要です。
+        </p>
+
+        <div class="explanation" style="background: #f8f9fa; padding: 12px; border-radius: 4px; border-left: 4px solid #0056b3;">
+            <strong>なぜAPIキーが必要なのですか？</strong><br>
+            Linzuはユーザーのプライバシーを第一に考え、サーバーを経由せずにあなたのブラウザ内で完結して動作します。<br>
+            また、無料で高品質なツールを提供し続けるため、API利用料（無料枠あり）はお客様ご自身のキーを使用させていただく設計となっております。<br>
+            入力されたキーはお使いのブラウザ内にのみ保存され、外部に送信されることはありません。
+        </div>
+
+        <label for="apiKey">Gemini API Key</label>
+        <input type="text" id="apiKey" placeholder="Enter your Gemini API Key here (starts with AIza...)">
+
+        <p class="explanation">
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #0056b3;">こちらからAPIキーを取得できます (Google AI Studio)</a>
+        </p>
+
+        <button id="saveButton">設定を保存</button>
+        <div id="status" class="status-message"></div>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>

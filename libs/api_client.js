@@ -1,16 +1,91 @@
 // Gemini API Client for Linzu Trust Checker
 // このクライアントは、Google Gemini APIを使用して画像のAI生成アーティファクトを分析します。
-// 使用モデル: gemini-1.5-flash
+// 使用モデル: gemini-1.5-flash (または最新のFlashモデル)
 // エンドポイント: v1 (安定版)
 
 class GeminiClient {
     /**
-     * Gemini APIのエンドポイント設定
-     * 将来的にAPIバージョンが変更された場合は、ここを更新してください。
+     * Gemini APIのベースURL
      * 安定版の v1 エンドポイントを使用します。
      */
-    static get API_ENDPOINT() {
-        return 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
+    static get BASE_URL() {
+        return 'https://generativelanguage.googleapis.com/v1';
+    }
+
+    /**
+     * 最適なFlashモデルを動的に取得します。
+     * @param {string} apiKey - ユーザーが設定したGemini APIキー
+     * @returns {Promise<string>} 最適なモデル名 (例: 'models/gemini-1.5-flash')
+     */
+    static async getBestFlashModel(apiKey) {
+        // キャッシュチェック (24時間有効)
+        const cacheKey = 'linzu_cached_model';
+        const cache = await new Promise(resolve => chrome.storage.local.get(cacheKey, resolve));
+
+        if (cache[cacheKey] && cache[cacheKey].timestamp > Date.now() - 24 * 60 * 60 * 1000) {
+            // console.log('Using cached model:', cache[cacheKey].modelName);
+            return cache[cacheKey].modelName;
+        }
+
+        try {
+            const url = `${this.BASE_URL}/models?key=${apiKey}`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                // モデルリスト取得に失敗した場合は、安全なデフォルト値を返す
+                console.warn('Failed to fetch model list, falling back to default.');
+                return 'models/gemini-1.5-flash';
+            }
+
+            const data = await response.json();
+
+            // "flash" を含み、画像生成(generateContent)をサポートするモデルをフィルタリング
+            const flashModels = (data.models || [])
+                .filter(m => m.name.toLowerCase().includes('flash'))
+                .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'));
+
+            if (flashModels.length === 0) {
+                 return 'models/gemini-1.5-flash'; // Fallback
+            }
+
+            // バージョン番号でソート (新しい順)
+            // 単純な文字列比較ではなく、バージョン番号をパースして比較するのが理想だが、
+            // 現状は "gemini-1.5-flash" や "gemini-1.5-flash-001" などの形式が多い。
+            // "latest" があればそれを優先、なければバージョン番号が大きいものを選ぶ。
+            // ここでは簡易的に、名前の降順ソート（新しいバージョン番号が上に来やすい）を採用しつつ、
+            // "latest" を含むものを最優先にするロジックを組む。
+
+            flashModels.sort((a, b) => {
+                const nameA = a.name.toLowerCase();
+                const nameB = b.name.toLowerCase();
+
+                // "latest" を優先
+                if (nameA.includes('latest') && !nameB.includes('latest')) return -1;
+                if (!nameA.includes('latest') && nameB.includes('latest')) return 1;
+
+                // バージョン番号の比較 (単純な文字列降順)
+                if (nameA > nameB) return -1;
+                if (nameA < nameB) return 1;
+                return 0;
+            });
+
+            const bestModel = flashModels[0].name;
+
+            // キャッシュに保存
+            chrome.storage.local.set({
+                [cacheKey]: {
+                    modelName: bestModel,
+                    timestamp: Date.now()
+                }
+            });
+
+            // console.log('Selected best flash model:', bestModel);
+            return bestModel;
+
+        } catch (error) {
+            console.error('Error selecting model:', error);
+            return 'models/gemini-1.5-flash'; // Safe Fallback
+        }
     }
 
     /**
@@ -27,10 +102,15 @@ class GeminiClient {
             throw new Error('APIキーが設定されていません。設定画面から保存してください。');
         }
 
-        const url = `${this.API_ENDPOINT}?key=${apiKey}`;
+        // 動的にモデルを選択
+        const modelName = await this.getBestFlashModel(apiKey);
+
+        // エンドポイント構築
+        // modelName には 'models/' プレフィックスが含まれている場合があるため調整
+        const cleanModelName = modelName.startsWith('models/') ? modelName.slice(7) : modelName;
+        const url = `${this.BASE_URL}/models/${cleanModelName}:generateContent?key=${apiKey}`;
 
         // リクエストボディの構築
-        // プロンプトは日本語で回答を求め、簡潔なフォーマットを指定しています。
         const requestBody = {
             contents: [{
                 parts: [
@@ -50,15 +130,11 @@ class GeminiClient {
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 console.error('Gemini API Error:', errorData);
-                // ユーザー向けの一般的なエラーメッセージに変換
-                // 詳細なエラー内容はコンソールに残しつつ、UIには親切なメッセージを返す
                 throw new Error(errorData.error?.message || `API Error: ${response.status} ${response.statusText}`);
             }
 
             const data = await response.json();
 
-            // レスポンスの解析
-            // candidates配列が存在し、contentが含まれているかを確認
             const analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
             if (!analysisText) {
@@ -69,7 +145,6 @@ class GeminiClient {
 
         } catch (error) {
             console.error('Gemini Analysis Failed:', error);
-            // 呼び出し元（UI層）でキャッチして表示するためのエラーを再スロー
             throw error;
         }
     }

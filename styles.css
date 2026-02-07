@@ -334,3 +334,8 @@ input[type="text"] {
   font-style: italic;
   color: #666;
 }
+
+/* Modal Styles */
+#linzu-modal-container img {
+  border: 1px solid #ddd;
+}

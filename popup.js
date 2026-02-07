@@ -52,22 +52,16 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
           resultElement.innerHTML = '<span class="ai-analysis-loading">分析中... (数秒かかります)</span>';
 
-          // 1. Prepare Image
           const { base64, mimeType } = await prepareImage(imageUrl);
-
-          // 2. Call the API Client
           const analysisResult = await GeminiClient.analyzeImage(apiKey, base64, mimeType);
 
-          // 3. Display Result
           resultElement.innerHTML = `<div class="ai-analysis-result"><strong>AI視覚分析結果:</strong><br>${analysisResult.replace(/\n/g, '<br>')}</div>`;
 
       } catch (error) {
           console.error('Visual Analysis Error:', error);
 
-          // Commercial Grade Error Message: User-friendly and polite
           let userMessage = '現在、AI分析サービスが利用できないか、設定の確認が必要です。';
 
-          // Specific API errors (if message contains hints)
           if (error.message.includes('API key')) {
               userMessage = 'APIキーが無効です。設定をご確認ください。';
           } else if (error.message.includes('429')) {
@@ -141,7 +135,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (aiProbContainer && aiProbElement) {
                 aiProbContainer.style.display = 'block';
 
-                // Clear existing explanation
                 const existingExpl = document.getElementById('statusExplanation');
                 if (existingExpl) existingExpl.remove();
 
@@ -181,12 +174,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     const li = document.createElement('li');
                     li.className = 'detail-item';
 
+                    // Thumbnail
+                    const thumbImg = document.createElement('img');
+                    thumbImg.src = item.url;
+                    thumbImg.style.width = '40px';
+                    thumbImg.style.height = '40px';
+                    thumbImg.style.objectFit = 'cover';
+                    thumbImg.style.borderRadius = '4px';
+                    thumbImg.style.border = '1px solid #ddd';
+                    thumbImg.style.marginRight = '8px';
+
+                    // Flex container for Thumbnail + Content
+                    const contentContainer = document.createElement('div');
+                    contentContainer.style.display = 'flex';
+                    contentContainer.style.alignItems = 'flex-start';
+                    contentContainer.appendChild(thumbImg);
+
+                    const textContent = document.createElement('div');
+                    textContent.style.flex = '1';
+
                     // URL
                     const urlDiv = document.createElement('div');
                     urlDiv.className = 'detail-url';
                     urlDiv.textContent = item.url;
                     urlDiv.title = item.url;
-                    li.appendChild(urlDiv);
+                    textContent.appendChild(urlDiv);
 
                     // Status
                     const statusDiv = document.createElement('div');
@@ -204,7 +216,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         statusDiv.textContent = '判定: 安全/不明';
                         statusDiv.classList.add('status-safe');
                     }
-                    li.appendChild(statusDiv);
+                    textContent.appendChild(statusDiv);
+
+                    contentContainer.appendChild(textContent);
+                    li.appendChild(contentContainer);
 
                     // Explanation / Reason
                     if (item.dataMissing && !item.isSuspicious) {
@@ -253,14 +268,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         analyzeBtn.className = 'ai-analysis-button';
                         analyzeBtn.textContent = 'AI視覚分析';
 
-                        // Result Container (appended after buttons)
                         const analysisResultDiv = document.createElement('div');
 
                         analyzeBtn.addEventListener('click', () => {
-                            // Check API Key
                             chrome.storage.sync.get('geminiApiKey', (data) => {
                                 if (!data.geminiApiKey) {
-                                    // Prompt to open settings
                                     if (confirm('AI視覚分析にはGemini APIキーが必要です。\n設定画面を開きますか？')) {
                                         if (chrome.runtime.openOptionsPage) {
                                             chrome.runtime.openOptionsPage();
@@ -269,14 +281,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                         }
                                     }
                                 } else {
-                                    // Perform Analysis using the separated function
                                     handleVisualAnalysis(item.url, data.geminiApiKey, analysisResultDiv);
                                 }
                             });
                         });
                         actionsDiv.appendChild(analyzeBtn);
-                        li.appendChild(actionsDiv); // Buttons row
-                        li.appendChild(analysisResultDiv); // Result area below buttons
+                        li.appendChild(actionsDiv);
+                        li.appendChild(analysisResultDiv);
                     } else {
                         li.appendChild(actionsDiv);
                     }

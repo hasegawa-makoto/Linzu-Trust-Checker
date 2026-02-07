@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Linzu Trust Checker",
+  "version": "1.0",
+  "description": "Check the trustworthiness of the current page with Linzu.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": ["activeTab"]
+}

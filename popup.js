@@ -12,7 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const detailsContainer = document.getElementById('detailsContainer');
   const detailsList = document.getElementById('detailsList');
 
-  // Helper to show error
   function showError(msg) {
       if (resultDiv) resultDiv.style.display = 'none';
       if (errorContainer) {
@@ -21,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
   }
 
-  // Helper to clear error
   function clearError() {
       if (errorContainer) {
           errorContainer.style.display = 'none';
@@ -29,47 +27,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
   }
 
-  // Helper function to prepare image for analysis
   async function prepareImage(imageUrl) {
       const response = await fetch(imageUrl);
       if (!response.ok) throw new Error('Failed to fetch image.');
       const blob = await response.blob();
-
       const base64 = await new Promise((resolve, reject) => {
           const reader = new FileReader();
-          reader.onloadend = () => {
-              const base64 = reader.result.split(',')[1];
-              resolve(base64);
-          };
+          reader.onloadend = () => resolve(reader.result.split(',')[1]);
           reader.onerror = reject;
           reader.readAsDataURL(blob);
       });
       return { base64, mimeType: blob.type };
   }
 
-  // Main Analysis Handler using the GeminiClient
   async function handleVisualAnalysis(imageUrl, apiKey, resultElement) {
       try {
           resultElement.innerHTML = '<span class="ai-analysis-loading">分析中... (数秒かかります)</span>';
-
           const { base64, mimeType } = await prepareImage(imageUrl);
           const analysisResult = await GeminiClient.analyzeImage(apiKey, base64, mimeType);
-
           resultElement.innerHTML = `<div class="ai-analysis-result"><strong>AI視覚分析結果:</strong><br>${analysisResult.replace(/\n/g, '<br>')}</div>`;
-
       } catch (error) {
           console.error('Visual Analysis Error:', error);
-
           let userMessage = '現在、AI分析サービスが利用できないか、設定の確認が必要です。';
-
-          if (error.message.includes('API key')) {
-              userMessage = 'APIキーが無効です。設定をご確認ください。';
-          } else if (error.message.includes('429')) {
-              userMessage = 'APIのリクエスト制限に達しました。しばらく待ってから再試行してください。';
-          } else if (error.message.includes('500') || error.message.includes('503')) {
-              userMessage = 'Googleのサービスが一時的に混雑しています。後ほどお試しください。';
-          }
-
+          if (error.message.includes('API key')) userMessage = 'APIキーが無効です。設定をご確認ください。';
+          else if (error.message.includes('429')) userMessage = 'APIのリクエスト制限に達しました。';
+          else if (error.message.includes('500') || error.message.includes('503')) userMessage = 'Googleのサービスが一時的に混雑しています。';
           resultElement.innerHTML = `<span style="color: #d32f2f; font-size: 11px;">エラー: ${userMessage}</span>`;
       }
   }
@@ -90,51 +72,31 @@ document.addEventListener('DOMContentLoaded', () => {
       if (resultDiv) resultDiv.style.display = 'none';
       if (detailsList) detailsList.innerHTML = '';
       if (detailsContainer) detailsContainer.style.display = 'none';
-      if (showDetailsButton) {
-          showDetailsButton.style.display = 'none';
-          showDetailsButton.textContent = '詳細を表示';
-      }
+      if (showDetailsButton) showDetailsButton.style.display = 'none';
 
       chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
         const activeTab = tabs[0];
-        if (!activeTab) {
-            showError('アクティブなタブが見つかりません。');
-            return;
-        }
+        if (!activeTab) return showError('アクティブなタブが見つかりません。');
 
         chrome.tabs.sendMessage(activeTab.id, {action: 'scanImages'}, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error('Runtime error:', chrome.runtime.lastError.message);
-            showError(`エラー: ${chrome.runtime.lastError.message}`);
-            return;
-          }
+          if (chrome.runtime.lastError) return showError(`エラー: ${chrome.runtime.lastError.message}`);
 
           if (response) {
-            // Show Result
             if (resultDiv) resultDiv.style.display = 'block';
-
-            // Update Counts
             if (imageCountElement) imageCountElement.textContent = response.count;
 
-            // Determine Overall Status
+            // Overall Status Logic
+            // If any image is >= 80% (High Risk), show Warning
+            // Else if many are undetermined (21-79%), show "Undetermined"
+            const highRiskItems = response.details.filter(d => d.aiScore >= 80);
+            const undeterminedItems = response.details.filter(d => d.aiScore > 20 && d.aiScore < 80);
+
             let overallStatus = 'low';
-            let suspiciousCount = response.suspiciousCount || 0;
-            let missingDataCount = 0;
+            if (highRiskItems.length > 0) overallStatus = 'high';
+            else if (undeterminedItems.length > 0) overallStatus = 'undetermined';
 
-            if (response.details) {
-                missingDataCount = response.details.filter(d => d.dataMissing).length;
-            }
-
-            if (suspiciousCount > 0) {
-                overallStatus = 'high';
-            } else if (missingDataCount > 0) {
-                overallStatus = 'undetermined';
-            }
-
-            // Update Risk UI
             if (aiProbContainer && aiProbElement) {
                 aiProbContainer.style.display = 'block';
-
                 const existingExpl = document.getElementById('statusExplanation');
                 if (existingExpl) existingExpl.remove();
 
@@ -146,10 +108,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         warningMark.classList.add('show-warning');
                     }
                 } else if (overallStatus === 'undetermined') {
-                    aiProbElement.textContent = '判定保留 (データ不足)';
+                    aiProbElement.textContent = '判定保留 (詳細分析を推奨)';
                     aiProbElement.className = 'status-unknown';
                     if (warningMark) warningMark.style.display = 'none';
-
                     const expl = document.createElement('p');
                     expl.id = 'statusExplanation';
                     expl.className = 'detail-reason';
@@ -157,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     expl.style.marginTop = '8px';
                     expl.style.textAlign = 'center';
                     expl.style.color = '#555';
-                    expl.innerHTML = 'SNS等ではメタデータが削除されるため、判定できません。<br><strong>AI視覚分析</strong>をお試しください。';
+                    expl.innerHTML = 'メタデータが不足しています。<br><strong>AI視覚分析</strong>で詳しく調査できます。';
                     aiProbContainer.appendChild(expl);
                 } else {
                     aiProbElement.textContent = '低';
@@ -166,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Populate Details
+            // Populate Details with Confidence Meter
             if (response.details && response.details.length > 0 && detailsList) {
                 if (showDetailsButton) showDetailsButton.style.display = 'inline-block';
 
@@ -174,130 +135,115 @@ document.addEventListener('DOMContentLoaded', () => {
                     const li = document.createElement('li');
                     li.className = 'detail-item';
 
-                    // Thumbnail
-                    const thumbImg = document.createElement('img');
-                    thumbImg.src = item.url;
-                    thumbImg.style.width = '40px';
-                    thumbImg.style.height = '40px';
-                    thumbImg.style.objectFit = 'cover';
-                    thumbImg.style.borderRadius = '4px';
-                    thumbImg.style.border = '1px solid #ddd';
-                    thumbImg.style.marginRight = '8px';
+                    const liContent = document.createElement('div');
 
-                    // Flex container for Thumbnail + Content
-                    const contentContainer = document.createElement('div');
-                    contentContainer.style.display = 'flex';
-                    contentContainer.style.alignItems = 'flex-start';
-                    contentContainer.appendChild(thumbImg);
+                    // Thumbnail & URL Row
+                    const topRow = document.createElement('div');
+                    topRow.style.display = 'flex';
+                    topRow.style.gap = '10px';
+                    topRow.style.marginBottom = '10px';
 
-                    const textContent = document.createElement('div');
-                    textContent.style.flex = '1';
+                    const thumb = document.createElement('img');
+                    thumb.src = item.url;
+                    thumb.style.width = '50px';
+                    thumb.style.height = '50px';
+                    thumb.style.objectFit = 'cover';
+                    thumb.style.borderRadius = '4px';
+                    thumb.style.border = '1px solid #ddd';
+                    topRow.appendChild(thumb);
 
-                    // URL
                     const urlDiv = document.createElement('div');
                     urlDiv.className = 'detail-url';
                     urlDiv.textContent = item.url;
                     urlDiv.title = item.url;
-                    textContent.appendChild(urlDiv);
+                    urlDiv.style.flex = '1';
+                    topRow.appendChild(urlDiv);
+                    liContent.appendChild(topRow);
 
-                    // Status
-                    const statusDiv = document.createElement('div');
-                    statusDiv.className = 'detail-status';
-                    if (item.error) {
-                        statusDiv.textContent = 'エラー';
-                        statusDiv.classList.add('status-error');
-                    } else if (item.isSuspicious) {
-                        statusDiv.textContent = '判定: 疑わしい';
-                        statusDiv.classList.add('status-suspicious');
-                    } else if (item.dataMissing) {
-                        statusDiv.textContent = '判定不可 (データ削除済み)';
-                        statusDiv.classList.add('status-unknown');
-                    } else {
-                        statusDiv.textContent = '判定: 安全/不明';
-                        statusDiv.classList.add('status-safe');
-                    }
-                    textContent.appendChild(statusDiv);
+                    // Confidence Meter
+                    // Score determines Color & Text
+                    let scoreColor = '#f57c00';
+                    let scoreText = '判定保留 (データ不足)';
+                    if (item.aiScore >= 80) { scoreColor = '#d32f2f'; scoreText = 'AI生成の可能性が高い'; }
+                    else if (item.aiScore <= 20) { scoreColor = '#2e7d32'; scoreText = '写真/手描きの可能性が高い'; }
 
-                    contentContainer.appendChild(textContent);
-                    li.appendChild(contentContainer);
+                    const meterContainer = document.createElement('div');
+                    meterContainer.className = 'confidence-meter';
 
-                    // Explanation / Reason
-                    if (item.dataMissing && !item.isSuspicious) {
-                        const warnDiv = document.createElement('div');
-                        warnDiv.className = 'detail-reason';
-                        warnDiv.textContent = 'SNS等によりメタデータが削除された可能性があります。';
-                        warnDiv.style.color = '#f57c00';
-                        li.appendChild(warnDiv);
-                    }
-                    if (item.error || item.reason) {
-                        const msgDiv = document.createElement('div');
-                        msgDiv.className = 'detail-reason';
-                        msgDiv.textContent = item.error ? `Error: ${item.error}` : item.reason;
-                        li.appendChild(msgDiv);
-                    }
+                    const bar = document.createElement('div');
+                    bar.className = 'confidence-bar';
+                    bar.style.width = `${item.aiScore}%`;
+                    bar.style.backgroundColor = scoreColor;
+                    meterContainer.appendChild(bar);
+                    liContent.appendChild(meterContainer);
 
-                    // Metadata
-                    if (item.metadata && Object.keys(item.metadata).length > 0) {
-                        const metaPre = document.createElement('pre');
-                        metaPre.className = 'detail-meta';
-                        metaPre.textContent = JSON.stringify(item.metadata, null, 2);
-                        li.appendChild(metaPre);
+                    const scoreLabel = document.createElement('div');
+                    scoreLabel.style.display = 'flex';
+                    scoreLabel.style.justifyContent = 'space-between';
+                    scoreLabel.style.fontSize = '11px';
+                    scoreLabel.style.fontWeight = 'bold';
+                    scoreLabel.style.color = scoreColor;
+                    scoreLabel.style.marginBottom = '8px';
+                    scoreLabel.innerHTML = `<span>${scoreText}</span><span>${item.aiScore}%</span>`;
+                    liContent.appendChild(scoreLabel);
+
+                    // Recommendation (If Mid-Range)
+                    if (item.aiScore > 20 && item.aiScore < 80) {
+                        const rec = document.createElement('div');
+                        rec.className = 'recommendation-text';
+                        rec.textContent = '判定精度を上げるために、AI視覚分析を推奨します。';
+                        liContent.appendChild(rec);
                     }
 
-                    // Action Buttons Container
-                    const actionsDiv = document.createElement('div');
-                    actionsDiv.style.marginTop = '8px';
-                    actionsDiv.style.display = 'flex';
-                    actionsDiv.style.gap = '8px';
-                    actionsDiv.style.flexWrap = 'wrap';
-                    actionsDiv.style.alignItems = 'center';
+                    // Metadata / Reasons
+                    if (item.reason) {
+                        const reasonDiv = document.createElement('div');
+                        reasonDiv.className = 'detail-reason';
+                        reasonDiv.textContent = item.reason;
+                        liContent.appendChild(reasonDiv);
+                    }
 
-                    // Google Lens Button
-                    if (item.url && !item.url.startsWith('data:')) {
+                    // Buttons
+                    const btnRow = document.createElement('div');
+                    btnRow.style.display = 'flex';
+                    btnRow.style.gap = '8px';
+                    btnRow.style.marginTop = '8px';
+
+                    if (!item.url.startsWith('data:')) {
                         const lensLink = document.createElement('a');
                         lensLink.href = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(item.url)}`;
                         lensLink.target = '_blank';
                         lensLink.className = 'lens-button';
                         lensLink.textContent = 'Googleレンズ';
-                        actionsDiv.appendChild(lensLink);
+                        btnRow.appendChild(lensLink);
                     }
 
-                    // AI Analysis Button
                     if (!item.error) {
-                        const analyzeBtn = document.createElement('button');
-                        analyzeBtn.className = 'ai-analysis-button';
-                        analyzeBtn.textContent = 'AI視覚分析';
-
-                        const analysisResultDiv = document.createElement('div');
-
-                        analyzeBtn.addEventListener('click', () => {
+                        const aiBtn = document.createElement('button');
+                        aiBtn.className = 'ai-analysis-button';
+                        aiBtn.textContent = 'AI視覚分析';
+                        const resDiv = document.createElement('div');
+                        aiBtn.addEventListener('click', () => {
                             chrome.storage.sync.get('geminiApiKey', (data) => {
                                 if (!data.geminiApiKey) {
-                                    if (confirm('AI視覚分析にはGemini APIキーが必要です。\n設定画面を開きますか？')) {
-                                        if (chrome.runtime.openOptionsPage) {
-                                            chrome.runtime.openOptionsPage();
-                                        } else {
-                                            window.open(chrome.runtime.getURL('options.html'));
-                                        }
-                                    }
+                                    if (confirm('AI視覚分析にはGemini APIキーが必要です。\n設定画面を開きますか？')) chrome.runtime.openOptionsPage();
                                 } else {
-                                    handleVisualAnalysis(item.url, data.geminiApiKey, analysisResultDiv);
+                                    handleVisualAnalysis(item.url, data.geminiApiKey, resDiv);
                                 }
                             });
                         });
-                        actionsDiv.appendChild(analyzeBtn);
-                        li.appendChild(actionsDiv);
-                        li.appendChild(analysisResultDiv);
+                        btnRow.appendChild(aiBtn);
+                        liContent.appendChild(btnRow);
+                        liContent.appendChild(resDiv);
                     } else {
-                        li.appendChild(actionsDiv);
+                        liContent.appendChild(btnRow);
                     }
 
+                    li.appendChild(liContent);
                     detailsList.appendChild(li);
                 });
             }
-          } else {
-              showError('応答がありません。');
-          }
+          } else showError('応答がありません。');
         });
       });
     });

@@ -5,6 +5,10 @@ const METADATA_CONFIG = {
     'AI', 'Generated', 'Synthetic', 'Midjourney', 'DALL-E',
     'Stable Diffusion', 'Adobe Firefly', 'Bing Image Creator'
   ],
+  URL_KEYWORDS: [
+    'midjourney', 'dall-e', 'dreamstudio', 'stable-diffusion',
+    'generated', 'synthetic', 'ai-generated'
+  ],
   SIGNATURES: ['c2pa', 'jumbf'],
   HEADER_SCAN_SIZE: 50000 // 50KB
 };
@@ -16,16 +20,29 @@ async function checkMetadata(imgUrl) {
     isSuspicious: false,
     reason: '',
     metadata: {},
-    error: null
+    error: null,
+    dataMissing: false
   };
 
   try {
+    // 0. Check URL/Filename for AI Keywords (Auxiliary Logic)
+    const lowerUrl = imgUrl.toLowerCase();
+    for (const keyword of METADATA_CONFIG.URL_KEYWORDS) {
+        if (lowerUrl.includes(keyword)) {
+            result.isSuspicious = true;
+            result.reason += `URL/Filename contains '${keyword}'. `;
+            break;
+        }
+    }
+
     const response = await fetch(imgUrl);
     if (!response.ok) {
         throw new Error(`HTTP Error: ${response.status}`);
     }
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
+
+    let hasMetadata = false;
 
     // 1. Check for C2PA/JUMBF signature in raw bytes
     const headerBytes = new Uint8Array(arrayBuffer.slice(0, METADATA_CONFIG.HEADER_SCAN_SIZE));
@@ -36,6 +53,7 @@ async function checkMetadata(imgUrl) {
             result.isSuspicious = true;
             result.reason += `Signature '${signature}' found. `;
             result.metadata[signature] = 'Found in header';
+            hasMetadata = true;
             break;
         }
     }
@@ -44,7 +62,8 @@ async function checkMetadata(imgUrl) {
     // EXIF.readFromBinaryFile returns an object with all tags
     const exifData = EXIF.readFromBinaryFile(arrayBuffer);
 
-    if (exifData) {
+    if (exifData && Object.keys(exifData).length > 0) {
+      hasMetadata = true;
       // Capture all relevant tags for debugging/details view
       METADATA_CONFIG.EXIF_TAGS.forEach(tag => {
         if (exifData[tag]) {
@@ -61,8 +80,14 @@ async function checkMetadata(imgUrl) {
             }
         }
       });
-    } else {
-        result.metadata['Exif'] = 'No Exif data found';
+    }
+
+    if (!hasMetadata) {
+        result.dataMissing = true;
+        result.metadata['Status'] = 'No Exif/C2PA data found';
+        if (!result.isSuspicious) {
+            result.reason += 'No metadata found (common in SNS uploads). ';
+        }
     }
 
     result.reason = result.reason.trim();

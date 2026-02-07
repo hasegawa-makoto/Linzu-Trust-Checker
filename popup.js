@@ -112,11 +112,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (item.isSuspicious) {
                         statusDiv.textContent = '判定: 疑わしい';
                         statusDiv.classList.add('status-suspicious');
+                    } else if (item.dataMissing) {
+                        statusDiv.textContent = '判定不可 (データ削除済み)';
+                        statusDiv.classList.add('status-unknown');
                     } else {
                         statusDiv.textContent = '判定: 安全/不明';
                         statusDiv.classList.add('status-safe');
                     }
                     li.appendChild(statusDiv);
+
+                    // Data Missing Explanation
+                    if (item.dataMissing && !item.isSuspicious) {
+                        const warnDiv = document.createElement('div');
+                        warnDiv.className = 'detail-reason';
+                        warnDiv.textContent = 'SNS等によりメタデータが削除された可能性があります。';
+                        warnDiv.style.color = '#f57c00'; // Orange
+                        li.appendChild(warnDiv);
+                    }
 
                     // Reason / Error Message
                     if (item.error || item.reason) {
@@ -132,11 +144,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         metaPre.className = 'detail-meta';
                         metaPre.textContent = JSON.stringify(item.metadata, null, 2);
                         li.appendChild(metaPre);
-                    } else if (!item.error) {
-                         const metaPre = document.createElement('pre');
-                         metaPre.className = 'detail-meta';
-                         metaPre.textContent = '(No relevant tags)';
-                         li.appendChild(metaPre);
+                    }
+
+                    // Google Lens Button
+                    if (item.url && !item.url.startsWith('data:')) {
+                        const lensLink = document.createElement('a');
+                        lensLink.href = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(item.url)}`;
+                        lensLink.target = '_blank';
+                        lensLink.className = 'lens-button';
+                        lensLink.textContent = 'Googleレンズで確認';
+                        li.appendChild(lensLink);
                     }
 
                     detailsList.appendChild(li);

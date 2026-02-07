@@ -11,10 +11,18 @@
       </header>
       <main>
         <button id="scanButton">現在のページをスキャン</button>
+        <div id="errorContainer" style="display: none; color: #d32f2f; margin-top: 16px; font-weight: bold;"></div>
         <div id="result" style="display: none;">
           <div id="warningMark" class="warning-icon"></div>
           <p>画像数: <span id="imageCount">0</span></p>
           <p id="aiProbabilityContainer" style="display: none;">AIの可能性: <span id="aiProbability"></span></p>
+
+          <button id="showDetailsButton" class="secondary-button" style="display: none;">詳細を表示</button>
+
+          <div id="detailsContainer" style="display: none;">
+            <p class="details-title">スキャン結果詳細:</p>
+            <ul id="detailsList"></ul>
+          </div>
         </div>
       </main>
     </div>

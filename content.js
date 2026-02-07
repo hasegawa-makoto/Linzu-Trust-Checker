@@ -11,13 +11,21 @@ const METADATA_CONFIG = {
 
 // Function to check metadata of an image
 async function checkMetadata(imgUrl) {
+  const result = {
+    url: imgUrl,
+    isSuspicious: false,
+    reason: '',
+    metadata: {},
+    error: null
+  };
+
   try {
     const response = await fetch(imgUrl);
+    if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+    }
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
-
-    let isSuspicious = false;
-    let reason = '';
 
     // 1. Check for C2PA/JUMBF signature in raw bytes
     const headerBytes = new Uint8Array(arrayBuffer.slice(0, METADATA_CONFIG.HEADER_SCAN_SIZE));
@@ -25,36 +33,45 @@ async function checkMetadata(imgUrl) {
 
     for (const signature of METADATA_CONFIG.SIGNATURES) {
         if (headerString.includes(signature)) {
-            isSuspicious = true;
-            reason += `Signature '${signature}' found. `;
+            result.isSuspicious = true;
+            result.reason += `Signature '${signature}' found. `;
+            result.metadata[signature] = 'Found in header';
             break;
         }
     }
 
     // 2. Check Exif using exif-js
+    // EXIF.readFromBinaryFile returns an object with all tags
     const exifData = EXIF.readFromBinaryFile(arrayBuffer);
 
     if (exifData) {
+      // Capture all relevant tags for debugging/details view
       METADATA_CONFIG.EXIF_TAGS.forEach(tag => {
         if (exifData[tag]) {
-            const val = String(exifData[tag]).toLowerCase();
+            const val = String(exifData[tag]);
+            result.metadata[tag] = val; // Store the value
+
+            const lowerVal = val.toLowerCase();
             for (const keyword of METADATA_CONFIG.AI_KEYWORDS) {
-                if (val.includes(keyword.toLowerCase())) {
-                    isSuspicious = true;
-                    reason += `Keyword '${keyword}' found in ${tag}. `;
+                if (lowerVal.includes(keyword.toLowerCase())) {
+                    result.isSuspicious = true;
+                    result.reason += `Keyword '${keyword}' found in ${tag}. `;
                     break;
                 }
             }
         }
       });
+    } else {
+        result.metadata['Exif'] = 'No Exif data found';
     }
 
-    return { isSuspicious, reason: reason.trim() };
+    result.reason = result.reason.trim();
+    return result;
 
   } catch (error) {
     // console.error('Error checking metadata for', imgUrl, error);
-    // Silent fail for CORS or network issues
-    return { isSuspicious: false, reason: 'Error or CORS issue' };
+    result.error = error.message || 'Unknown Error (likely CORS)';
+    return result;
   }
 }
 
@@ -68,14 +85,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const imagesToScan = images.slice(0, 10);
     const scanPromises = imagesToScan.map(img => {
         let src = img.src;
-        if (!src) return Promise.resolve({ isSuspicious: false });
+        if (!src) return Promise.resolve({ url: 'unknown', isSuspicious: false, error: 'No Source URL' });
         return checkMetadata(src);
     });
 
     Promise.all(scanPromises).then(results => {
         const suspiciousCount = results.filter(r => r.isSuspicious).length;
         // console.log(`Analysis complete. Suspicious: ${suspiciousCount}`);
-        sendResponse({ count: totalImages, suspiciousCount: suspiciousCount });
+        sendResponse({
+            count: totalImages,
+            suspiciousCount: suspiciousCount,
+            details: results // Send full details back
+        });
     });
 
     return true; // Keep channel open for async response

@@ -29,59 +29,54 @@ document.addEventListener('DOMContentLoaded', () => {
       }
   }
 
-  // Gemini Analysis Function
-  async function analyzeImageWithGemini(imageUrl, apiKey, resultElement) {
+  // Helper function to prepare image for analysis
+  async function prepareImage(imageUrl) {
+      const response = await fetch(imageUrl);
+      if (!response.ok) throw new Error('Failed to fetch image.');
+      const blob = await response.blob();
+
+      const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              const base64 = reader.result.split(',')[1];
+              resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+      });
+      return { base64, mimeType: blob.type };
+  }
+
+  // Main Analysis Handler using the GeminiClient
+  async function handleVisualAnalysis(imageUrl, apiKey, resultElement) {
       try {
           resultElement.innerHTML = '<span class="ai-analysis-loading">分析中... (数秒かかります)</span>';
 
-          // 1. Fetch Image and Convert to Base64
-          // Note: Fetching from popup context might hit CORS unless <all_urls> is active, which it is.
-          const response = await fetch(imageUrl);
-          if (!response.ok) throw new Error('Failed to fetch image for analysis.');
-          const blob = await response.blob();
+          // 1. Prepare Image
+          const { base64, mimeType } = await prepareImage(imageUrl);
 
-          const base64Data = await new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                  const base64 = reader.result.split(',')[1];
-                  resolve(base64);
-              };
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-          });
+          // 2. Call the API Client
+          const analysisResult = await GeminiClient.analyzeImage(apiKey, base64, mimeType);
 
-          // 2. Call Gemini API
-          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-          const requestBody = {
-              contents: [{
-                  parts: [
-                      { text: "Analyze this image for visual evidence of AI generation (e.g., artifacts, unnatural lighting, anatomy issues). Be concise and respond in Japanese. output format: 【判定】(AI or Natural or Unknown) \n【理由】(Reason)" },
-                      { inline_data: { mime_type: blob.type, data: base64Data } }
-                  ]
-              }]
-          };
-
-          const apiResponse = await fetch(apiUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(requestBody)
-          });
-
-          if (!apiResponse.ok) {
-              const errorData = await apiResponse.json();
-              throw new Error(`Gemini API Error: ${errorData.error?.message || apiResponse.statusText}`);
-          }
-
-          const data = await apiResponse.json();
-          const analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response from AI.';
-
-          // Format the output
-          resultElement.innerHTML = `<div class="ai-analysis-result"><strong>AI視覚分析結果:</strong><br>${analysisText.replace(/\n/g, '<br>')}</div>`;
+          // 3. Display Result
+          resultElement.innerHTML = `<div class="ai-analysis-result"><strong>AI視覚分析結果:</strong><br>${analysisResult.replace(/\n/g, '<br>')}</div>`;
 
       } catch (error) {
-          console.error('Analysis Error:', error);
-          resultElement.innerHTML = `<span style="color: #d32f2f; font-size: 11px;">エラー: ${error.message}</span>`;
+          console.error('Visual Analysis Error:', error);
+
+          // Commercial Grade Error Message: User-friendly and polite
+          let userMessage = '現在、AI分析サービスが利用できないか、設定の確認が必要です。';
+
+          // Specific API errors (if message contains hints)
+          if (error.message.includes('API key')) {
+              userMessage = 'APIキーが無効です。設定をご確認ください。';
+          } else if (error.message.includes('429')) {
+              userMessage = 'APIのリクエスト制限に達しました。しばらく待ってから再試行してください。';
+          } else if (error.message.includes('500') || error.message.includes('503')) {
+              userMessage = 'Googleのサービスが一時的に混雑しています。後ほどお試しください。';
+          }
+
+          resultElement.innerHTML = `<span style="color: #d32f2f; font-size: 11px;">エラー: ${userMessage}</span>`;
       }
   }
 
@@ -253,8 +248,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     // AI Analysis Button
-                    // Only show for valid URLs (can't easily analyze data URIs if too large, but fetch handles it usually)
-                    // Let's show it for all valid items
                     if (!item.error) {
                         const analyzeBtn = document.createElement('button');
                         analyzeBtn.className = 'ai-analysis-button';
@@ -276,8 +269,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                         }
                                     }
                                 } else {
-                                    // Perform Analysis
-                                    analyzeImageWithGemini(item.url, data.geminiApiKey, analysisResultDiv);
+                                    // Perform Analysis using the separated function
+                                    handleVisualAnalysis(item.url, data.geminiApiKey, analysisResultDiv);
                                 }
                             });
                         });

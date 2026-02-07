@@ -7,7 +7,7 @@
     "default_popup": "popup.html"
   },
   "permissions": ["activeTab", "storage"],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": ["<all_urls>", "https://generativelanguage.googleapis.com/*"],
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true

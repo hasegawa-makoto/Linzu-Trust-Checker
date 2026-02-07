@@ -20,8 +20,28 @@ document.addEventListener('DOMContentLoaded', () => {
               }
 
               if (response && response.count !== undefined) {
-                console.log(`Images found: ${response.count}`);
-                resultDiv.innerHTML = '<p>画像数: <span id="imageCount">' + response.count + '</span></p>';
+                console.log(`Images found: ${response.count}, Suspicious: ${response.suspiciousCount}`);
+
+                // Update Image Count
+                const imageCountElement = document.getElementById('imageCount');
+                if (imageCountElement) {
+                    imageCountElement.textContent = response.count;
+                }
+
+                // Update AI Probability
+                const aiProbContainer = document.getElementById('aiProbabilityContainer');
+                const aiProbElement = document.getElementById('aiProbability');
+
+                if (aiProbContainer && aiProbElement) {
+                    aiProbContainer.style.display = 'block';
+                    if (response.suspiciousCount > 0) {
+                        aiProbElement.textContent = '高';
+                        aiProbElement.className = 'high-risk';
+                    } else {
+                        aiProbElement.textContent = '低';
+                        aiProbElement.className = 'low-risk';
+                    }
+                }
               }
             }
           });

@@ -53,3 +53,13 @@ button:active {
   font-weight: bold;
   color: #0056b3;
 }
+
+.high-risk {
+  color: #d32f2f; /* Red */
+  font-weight: bold;
+}
+
+.low-risk {
+  color: #388e3c; /* Green */
+  font-weight: bold;
+}

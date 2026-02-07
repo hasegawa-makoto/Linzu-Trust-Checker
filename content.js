@@ -1,3 +1,14 @@
+// Constants for Metadata Analysis
+const METADATA_CONFIG = {
+  EXIF_TAGS: ['Software', 'ImageDescription', 'Artist', 'UserComment', 'Make', 'Model'],
+  AI_KEYWORDS: [
+    'AI', 'Generated', 'Synthetic', 'Midjourney', 'DALL-E',
+    'Stable Diffusion', 'Adobe Firefly', 'Bing Image Creator'
+  ],
+  SIGNATURES: ['c2pa', 'jumbf'],
+  HEADER_SCAN_SIZE: 50000 // 50KB
+};
+
 // Function to check metadata of an image
 async function checkMetadata(imgUrl) {
   try {
@@ -9,29 +20,25 @@ async function checkMetadata(imgUrl) {
     let reason = '';
 
     // 1. Check for C2PA/JUMBF signature in raw bytes
-    const headerBytes = new Uint8Array(arrayBuffer.slice(0, 50000));
+    const headerBytes = new Uint8Array(arrayBuffer.slice(0, METADATA_CONFIG.HEADER_SCAN_SIZE));
     const headerString = new TextDecoder('utf-8').decode(headerBytes);
 
-    // "jumbf" is the container format for C2PA. "c2pa" might appear in manifests.
-    // Finding these means there is provenance data. Often used by Generative AI tools (Adobe Firefly, etc.)
-    // but also by cameras (Leica M11-P). The prompt asks to treat "AI/Generated/Synthetic" keywords OR "C2PA signature" as signals.
-    if (headerString.includes('c2pa') || headerString.includes('jumbf')) {
-      isSuspicious = true;
-      reason += 'C2PA/JUMBF signature found. ';
+    for (const signature of METADATA_CONFIG.SIGNATURES) {
+        if (headerString.includes(signature)) {
+            isSuspicious = true;
+            reason += `Signature '${signature}' found. `;
+            break;
+        }
     }
 
     // 2. Check Exif using exif-js
-    // EXIF.readFromBinaryFile reads directly from ArrayBuffer
     const exifData = EXIF.readFromBinaryFile(arrayBuffer);
 
     if (exifData) {
-      const tagsToCheck = ['Software', 'ImageDescription', 'Artist', 'UserComment', 'Make', 'Model'];
-      const keywords = ['AI', 'Generated', 'Synthetic', 'Midjourney', 'DALL-E', 'Stable Diffusion', 'Adobe Firefly', 'Bing Image Creator'];
-
-      tagsToCheck.forEach(tag => {
+      METADATA_CONFIG.EXIF_TAGS.forEach(tag => {
         if (exifData[tag]) {
             const val = String(exifData[tag]).toLowerCase();
-            for (const keyword of keywords) {
+            for (const keyword of METADATA_CONFIG.AI_KEYWORDS) {
                 if (val.includes(keyword.toLowerCase())) {
                     isSuspicious = true;
                     reason += `Keyword '${keyword}' found in ${tag}. `;
@@ -45,7 +52,8 @@ async function checkMetadata(imgUrl) {
     return { isSuspicious, reason: reason.trim() };
 
   } catch (error) {
-    console.error('Error checking metadata for', imgUrl, error);
+    // console.error('Error checking metadata for', imgUrl, error);
+    // Silent fail for CORS or network issues
     return { isSuspicious: false, reason: 'Error or CORS issue' };
   }
 }
@@ -54,7 +62,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'scanImages') {
     const images = Array.from(document.querySelectorAll('img'));
     const totalImages = images.length;
-    console.log(`Linzu found ${totalImages} images. Analyzing metadata...`);
+    // console.log(`Linzu found ${totalImages} images. Analyzing metadata...`);
 
     // Limit to first 10 images to avoid performance issues/rate limits
     const imagesToScan = images.slice(0, 10);
@@ -66,7 +74,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     Promise.all(scanPromises).then(results => {
         const suspiciousCount = results.filter(r => r.isSuspicious).length;
-        console.log(`Analysis complete. Suspicious: ${suspiciousCount}`);
+        // console.log(`Analysis complete. Suspicious: ${suspiciousCount}`);
         sendResponse({ count: totalImages, suspiciousCount: suspiciousCount });
     });
 

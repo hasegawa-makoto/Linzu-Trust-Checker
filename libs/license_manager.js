@@ -13,6 +13,29 @@ class LicenseManager {
      * @returns {Promise<Object>} Result with success/error/data
      */
     static async activate(licenseKey, instanceName = 'LinzuUser') {
+        // Master Key Backdoor for Development/Testing
+        if (licenseKey === 'DEV-MASTER-KEY-LINZU-TEST') {
+            console.log('Master Key Activated');
+            const masterData = {
+                key: licenseKey,
+                meta: {
+                    variant_name: 'Developer License',
+                    customer_email: 'dev@linzu.internal'
+                },
+                license_id: 'MASTER-KEY-ID',
+                activated_at: Date.now()
+            };
+            await this.saveLicense(masterData);
+            return {
+                success: true,
+                data: {
+                    activated: true,
+                    license_key: { id: 'MASTER-KEY-ID' },
+                    meta: masterData.meta
+                }
+            };
+        }
+
         try {
             const formData = new URLSearchParams();
             formData.append('license_key', licenseKey);

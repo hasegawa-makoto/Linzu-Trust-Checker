@@ -164,7 +164,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
         chrome.notifications.create('linzu-start', {
             type: 'basic',
-            iconUrl: 'icon.png',
+            iconUrl: 'icons/icon128.png',
             title: chrome.i18n.getMessage('extName'),
             message: chrome.i18n.getMessage('statusAnalyzing'),
             priority: 0
@@ -185,7 +185,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
         chrome.notifications.create('linzu-success', {
             type: 'basic',
-            iconUrl: 'icon.png',
+            iconUrl: 'icons/icon128.png',
             title: resultTitle,
             message: resultMessage,
             priority: 1
@@ -207,7 +207,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         // but for critical errors (License/Auth), notification is good backup.
         chrome.notifications.create('linzu-error', {
             type: 'basic',
-            iconUrl: 'icon.png',
+            iconUrl: 'icons/icon128.png',
             title: structuredError.title,
             message: structuredError.message,
             priority: 2

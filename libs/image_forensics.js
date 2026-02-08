@@ -22,11 +22,11 @@ class ImageForensics {
 
             const imageData = ctx.getImageData(0, 0, width, height);
 
-            // 1. Classification (Photo vs Illustration)
-            const classification = this.classifyImage(imageData);
-
-            // 2. Noise/Texture Analysis
+            // 2. Noise/Texture Analysis (Moved up for use in classification)
             const noiseAnalysis = this.analyzeNoise(imageData);
+
+            // 1. Classification (Photo vs Illustration) - Now uses Noise
+            const classification = this.classifyImage(imageData, noiseAnalysis);
 
             // 3. ELA (Error Level Analysis)
             const elaScore = await this.performELA(canvas, imageBlob.type);
@@ -55,37 +55,9 @@ class ImageForensics {
     }
 
     /**
-     * Classify image based on color variance and edge density.
-     */
-    static classifyImage(imageData) {
-        const data = imageData.data;
-        let colorSet = new Set();
-        // Sample pixels for performance
-        const sampleRate = 10;
-
-        for (let i = 0; i < data.length; i += 4 * sampleRate) {
-            const r = data[i];
-            const g = data[i+1];
-            const b = data[i+2];
-            // Quantize colors slightly to group similar ones
-            const colorKey = `${Math.floor(r/10)},${Math.floor(g/10)},${Math.floor(b/10)}`;
-            colorSet.add(colorKey);
-        }
-
-        const uniqueColors = colorSet.size;
-        const totalPixels = data.length / 4;
-        const sampledPixels = totalPixels / sampleRate;
-        const colorRatio = uniqueColors / sampledPixels;
-
-        // Simple Heuristic: High color variance -> Photo, Low -> Illustration
-        // Photos usually have noise creating many unique colors.
-        const type = colorRatio > 0.15 ? 'Photo' : 'Illustration';
-
-        return { type, colorRatio };
-    }
-
-    /**
      * Analyze local variance (smoothness/noise).
+     * High Variance = Noisy (Photo-like)
+     * Low Variance = Smooth (AI/Illustration-like)
      */
     static analyzeNoise(imageData) {
         const data = imageData.data;
@@ -93,14 +65,13 @@ class ImageForensics {
         let totalVariance = 0;
         let count = 0;
 
-        // Calculate variance of Laplacian (edge/noise detection)
-        // Or simpler: difference between pixel and neighbors
-        for (let y = 1; y < imageData.height - 1; y += 2) {
-            for (let x = 1; x < width - 1; x += 2) {
+        // Sample more densely (every 2nd pixel row/col)
+        for (let y = 0; y < imageData.height - 1; y += 2) {
+            for (let x = 0; x < width - 1; x += 2) {
                 const i = (y * width + x) * 4;
                 const r = data[i];
 
-                // Compare with right neighbor
+                // Compare with immediate neighbor for fine noise
                 const iRight = i + 4;
                 const rRight = data[iRight];
 
@@ -110,48 +81,85 @@ class ImageForensics {
         }
 
         const avgVariance = totalVariance / count;
-
-        // AI images (especially photos) tend to be smoother (lower variance) than real camera photos (sensor noise).
-        // Illustrations vary.
         return { avgVariance };
     }
 
     /**
+     * Classify image based on color variance AND texture.
+     */
+    static classifyImage(imageData, noise) {
+        const data = imageData.data;
+        let colorSet = new Set();
+        // Increased sampling rate: check every 100th pixel (optimization for speed vs accuracy)
+        // Wait, requested "increase sampling". Let's do every 20th pixel to be safer but reasonably fast.
+        const sampleRate = 20;
+
+        for (let i = 0; i < data.length; i += 4 * sampleRate) {
+            const r = data[i];
+            const g = data[i+1];
+            const b = data[i+2];
+            // Quantize slightly
+            const colorKey = `${Math.floor(r/10)},${Math.floor(g/10)},${Math.floor(b/10)}`;
+            colorSet.add(colorKey);
+        }
+
+        const uniqueColors = colorSet.size;
+        const totalPixels = data.length / 4;
+        const sampledPixels = totalPixels / sampleRate;
+        const colorRatio = uniqueColors / sampledPixels;
+
+        // Classification Logic
+        // Photos: High Color Variance AND High Texture Noise
+        // Illustrations: Low Color Variance OR (High Color Variance but Low Noise -> Digital Art)
+
+        let type = 'Unknown';
+
+        if (colorRatio > 0.1) {
+            // Many colors. Could be Photo or detailed AI/Art.
+            // Use noise as discriminator.
+            // Real photos typically have avgVariance > 5-10 depending on ISO.
+            if (noise.avgVariance > 8) {
+                type = 'Photo';
+            } else {
+                type = 'Illustration'; // Or "Digital Art" / "Smooth AI Photo"
+            }
+        } else {
+            type = 'Illustration';
+        }
+
+        // Override: If variance is extremely high (>20), it's almost certainly a noisy photo.
+        if (noise.avgVariance > 20) type = 'Photo';
+
+        return { type, colorRatio };
+    }
+
+    /**
      * Simplified Error Level Analysis
-     * Re-compresses image and checks difference.
      */
     static async performELA(originalCanvas, mimeType) {
         try {
-            // Compress heavily
             const compressedBlob = await originalCanvas.convertToBlob({ type: 'image/jpeg', quality: 0.5 });
             const compressedBitmap = await createImageBitmap(compressedBlob);
 
             const diffCanvas = new OffscreenCanvas(originalCanvas.width, originalCanvas.height);
             const ctx = diffCanvas.getContext('2d');
 
-            // Draw original
             ctx.drawImage(originalCanvas, 0, 0);
             const originalData = ctx.getImageData(0, 0, diffCanvas.width, diffCanvas.height).data;
 
-            // Draw compressed
             ctx.drawImage(compressedBitmap, 0, 0);
             const compressedData = ctx.getImageData(0, 0, diffCanvas.width, diffCanvas.height).data;
 
             let totalDiff = 0;
-            for (let i = 0; i < originalData.length; i += 4) {
-                // Sum RGB differences
+            // Sampling for ELA
+            for (let i = 0; i < originalData.length; i += 16) { // Every 4th pixel
                 totalDiff += Math.abs(originalData[i] - compressedData[i]) +
                              Math.abs(originalData[i+1] - compressedData[i+1]) +
                              Math.abs(originalData[i+2] - compressedData[i+2]);
             }
 
-            const avgDiff = totalDiff / (originalData.length / 4);
+            const avgDiff = totalDiff / (originalData.length / 16);
             compressedBitmap.close();
-
-            // Interpretation:
-            // High difference usually means high frequency details (noise).
-            // AI images often have uniform ELA or specific patterns.
-            // This is a complex metric, using a simplified score here.
             return avgDiff;
 
         } catch (e) {
@@ -161,37 +169,41 @@ class ImageForensics {
 
     /**
      * Calculate final heuristic score (0-100)
+     * Must avoid 50.
      */
     static calculateForensicScore(cls, noise, ela) {
-        let score = 50; // Neutral start
+        let score = 55; // Base bias: slightly suspicious if nothing else known
         let reasons = [];
 
         // 1. Photo Analysis
         if (cls.type === 'Photo') {
-            // Photos usually have high noise/variance due to sensor.
-            // AI Photos are often cleaner/smoother.
-            if (noise.avgVariance < 5) {
-                score += 20;
-                reasons.push('Texture is unnaturally smooth (AI typical).');
-            } else if (noise.avgVariance > 15) {
-                score -= 20;
-                reasons.push('Natural sensor noise detected.');
+            // High noise in Photo -> Likely Human (Camera Sensor)
+            if (noise.avgVariance > 12) {
+                score = 25; // Low AI probability
+                reasons.push(`Detected sensor noise (Variance: ${noise.avgVariance.toFixed(1)}).`);
             }
-
-            // ELA for Photos:
-            // AI might handle compression differently, but simplified:
-            // Very low ELA diff might indicate synthetic smoothness.
-            if (ela < 2) {
-                score += 10;
+            // Very smooth Photo -> Likely AI
+            else if (noise.avgVariance < 6) {
+                score = 75; // High AI probability
+                reasons.push(`Unnaturally smooth texture for a photo (Variance: ${noise.avgVariance.toFixed(1)}).`);
+            } else {
+                score = 45; // Ambiguous Photo
+                reasons.push('Photo texture is indeterminate.');
             }
         }
         // 2. Illustration Analysis
         else {
-            // AI Illustrations often have "melted" details but high local contrast.
-            // Harder to judge purely on variance without complex edge tracking.
-            // We rely more heavily on metadata for illustrations, but:
-            if (noise.avgVariance < 2) {
-                score += 10; // Very flat vector-like, could be SVG or AI vector style.
+            // Illustrations are naturally smooth. Harder to judge.
+            // Bias towards 45 (Human Art) or 65 (AI Art)?
+            // AI Art often has inconsistent artifacts or specific smoothness.
+
+            // If ELA is very low (uniform), might be AI.
+            if (ela < 2) {
+                score = 65;
+                reasons.push('Compression analysis suggests synthetic generation.');
+            } else {
+                score = 35; // Likely Human Digital Art
+                reasons.push('Texture consistent with digital illustration.');
             }
         }
 

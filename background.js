@@ -1,7 +1,22 @@
 importScripts('libs/api_client.js');
 
 // Linzu Trust Checker - Background Script
-// Handles context menu interactions and centralized analysis requests
+// Handles context menu interactions and centralized analysis state
+
+// Simple in-memory state for the last analysis result
+let lastResult = {
+    status: 'idle', // 'idle', 'analyzing', 'success', 'error'
+    data: null,     // Analysis result object
+    error: null,    // Error message
+    imageUrl: null, // Thumbnail URL
+    timestamp: null
+};
+
+function updateState(newState) {
+    lastResult = { ...lastResult, ...newState, timestamp: Date.now() };
+    // Optionally broadcast to popup if open (optimization)
+    chrome.runtime.sendMessage({ action: 'STATE_UPDATED', state: lastResult }).catch(() => {});
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -12,10 +27,6 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 async function performAnalysis(url, apiKey) {
-    if (!apiKey) {
-        throw new Error('API_KEY_MISSING');
-    }
-
     // 1. Fetch Image (Privileged Service Worker Fetch)
     let blob;
     let mimeType;
@@ -41,16 +52,10 @@ async function performAnalysis(url, apiKey) {
     return await GeminiClient.analyzeImage(apiKey, base64, mimeType);
 }
 
-// Handle Requests from Popup
+// Handle Requests from Popup (Get Status)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === 'ANALYZE_IMAGE_REQUEST') {
-        performAnalysis(message.url, message.apiKey)
-            .then(result => sendResponse({ success: true, data: result }))
-            .catch(error => {
-                console.error('Background analysis failed:', error);
-                sendResponse({ success: false, error: error.message });
-            });
-        return true; // Keep message channel open for async response
+    if (message.action === 'GET_LAST_RESULT') {
+        sendResponse(lastResult);
     }
 });
 
@@ -60,12 +65,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         const data = await chrome.storage.sync.get('geminiApiKey');
         const apiKey = data.geminiApiKey;
 
+        // Handle Missing Key
         if (!apiKey) {
+            const msg = 'APIキーが設定されていません。設定画面でキーを入力してください。';
+            chrome.notifications.create('linzu-error', {
+                type: 'basic',
+                iconUrl: 'icon.png',
+                title: '設定が必要です',
+                message: msg,
+                priority: 2
+            });
             chrome.tabs.create({ url: chrome.runtime.getURL('options.html?reason=missing_key') });
             return;
         }
 
-        chrome.notifications.create('linzu-analyze-start', {
+        // Start Analysis
+        updateState({ status: 'analyzing', imageUrl: info.srcUrl, error: null, data: null });
+
+        chrome.notifications.create('linzu-start', {
             type: 'basic',
             iconUrl: 'icon.png',
             title: 'Linzu',
@@ -75,12 +92,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
         const analysis = await performAnalysis(info.srcUrl, apiKey);
 
-        // Show Result via Notification
+        // Success
+        updateState({ status: 'success', data: analysis });
+
         const prob = analysis.ai_probability;
         const resultTitle = `AI生成確率: ${prob}%`;
-        const resultMessage = `${analysis.detected_type}\n理由: ${analysis.reasons?.[0] || '特筆すべき理由なし'}`;
+        const resultMessage = `${analysis.detected_type}\n理由: ${analysis.reasons?.[0] || '詳細をポップアップで確認'}`;
 
-        chrome.notifications.create('linzu-analyze-success', {
+        chrome.notifications.create('linzu-success', {
             type: 'basic',
             iconUrl: 'icon.png',
             title: resultTitle,
@@ -104,16 +123,16 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
              userMessage = 'APIリクエスト形式が無効です (システム更新待ち)。';
         } else if (msg.includes('AI_PARSE_ERROR')) {
              userMessage = 'AIからの応答を解析できませんでした。';
-        } else if (msg.includes('API_KEY_MISSING')) {
-             userMessage = 'APIキーが設定されていません。';
         } else if (msg.includes('429')) {
              userMessage = 'APIの利用制限に達しました。1〜2分待ってから再度お試しください。';
         }
 
-        chrome.notifications.create('linzu-analyze-error', {
+        updateState({ status: 'error', error: userMessage });
+
+        chrome.notifications.create('linzu-error', {
             type: 'basic',
             iconUrl: 'icon.png',
-            title: 'Linzu 解析エラー',
+            title: '解析エラー',
             message: userMessage,
             priority: 2
         });

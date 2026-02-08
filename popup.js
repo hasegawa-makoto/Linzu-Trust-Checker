@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const aiProbContainer = document.getElementById('aiProbabilityContainer');
   const detailsContainer = document.getElementById('detailsContainer');
   const detailsList = document.getElementById('detailsList');
-  const imageCountElement = document.getElementById('imageCount'); // Reused for status text if needed or hidden
+  const imageCountElement = document.getElementById('imageCount');
   const warningMark = document.getElementById('warningMark');
 
   // Helper to show errors
@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Scan for Main Image
         if (imageCountElement) imageCountElement.textContent = 'スキャン中...';
-        if (resultDiv) resultDiv.style.display = 'block'; // Show loading state container
+        if (resultDiv) resultDiv.style.display = 'block';
 
         // Hide previous results
         if (aiProbContainer) aiProbContainer.style.display = 'none';
@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // 3. Prepare and Send to API
                 try {
-                    if (imageCountElement) imageCountElement.textContent = 'AI解析中... (Gemini 1.5 Flash)';
+                    if (imageCountElement) imageCountElement.textContent = 'AI解析中... (Gemini)';
 
                     const { base64, mimeType } = await prepareImage(imageUrl);
                     const analysis = await GeminiClient.analyzeImage(apiKey, base64, mimeType);
@@ -144,7 +144,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                 } catch (err) {
-                    showError(`分析エラー: ${err.message}`);
+                    // Specific Error Handling for User Friendliness
+                    if (err.message.includes('MODEL_NOT_FOUND') || err.message.includes('404')) {
+                         showError('現在システムを更新中です。しばらくしてから再度お試しください。');
+                    } else if (err.message.includes('API Key')) {
+                         showError('APIキーが無効のようです。設定画面で再確認してください。');
+                    } else {
+                         showError(`分析エラー: ${err.message}`);
+                    }
                 }
             });
         });

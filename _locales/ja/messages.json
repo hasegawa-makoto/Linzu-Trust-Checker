@@ -9,6 +9,7 @@
   "statusSuccess": { "message": "解析完了", "description": "成功時のタイトル" },
   "statusError": { "message": "エラーが発生しました", "description": "エラー時のタイトル" },
   "statusLicenseCheck": { "message": "ライセンスを確認中...", "description": "ライセンス確認中" },
+  "statusLicenseRedirect": { "message": "ライセンス認証が必要です。設定画面を開きます。", "description": "設定画面へのリダイレクト通知" },
 
   "labelProb": { "message": "AI生成確率", "description": "確率のラベル" },
   "labelType": { "message": "検出タイプ", "description": "タイプのラベル" },

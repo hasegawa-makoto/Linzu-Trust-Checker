@@ -9,6 +9,7 @@
   "statusSuccess": { "message": "Analysis Complete", "description": "Success status title" },
   "statusError": { "message": "Error Occurred", "description": "Error status title" },
   "statusLicenseCheck": { "message": "Checking License...", "description": "Status when activating license" },
+  "statusLicenseRedirect": { "message": "License authentication required. Opening settings.", "description": "Notification before redirecting to settings" },
 
   "labelProb": { "message": "AI Probability", "description": "Label for probability score" },
   "labelType": { "message": "Detected Type", "description": "Label for image type" },

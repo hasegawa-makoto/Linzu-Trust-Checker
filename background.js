@@ -216,6 +216,19 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         if (structuredError.code === 'API_KEY_MISSING') {
              chrome.tabs.create({ url: chrome.runtime.getURL('options.html?reason=missing_key') });
         }
+
+        if (structuredError.code === 'LICENSE_REQUIRED') {
+            chrome.notifications.create('linzu-redirect', {
+                type: 'basic',
+                iconUrl: 'icons/icon128.png',
+                title: chrome.i18n.getMessage('extName'),
+                message: chrome.i18n.getMessage('statusLicenseRedirect'),
+                priority: 2
+            });
+            setTimeout(() => {
+                chrome.tabs.create({ url: chrome.runtime.getURL('options.html?reason=license_required') });
+            }, 1500);
+        }
     }
   }
 });

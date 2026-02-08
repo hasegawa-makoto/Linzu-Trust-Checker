@@ -7,14 +7,14 @@ importScripts('libs/api_client.js');
 let lastResult = {
     status: 'idle', // 'idle', 'analyzing', 'success', 'error'
     data: null,     // Analysis result object
-    error: null,    // Error message
+    error: null,    // Error message or object
     imageUrl: null, // Thumbnail URL
     timestamp: null
 };
 
 function updateState(newState) {
     lastResult = { ...lastResult, ...newState, timestamp: Date.now() };
-    // Optionally broadcast to popup if open (optimization)
+    // Optionally broadcast to popup if open
     chrome.runtime.sendMessage({ action: 'STATE_UPDATED', state: lastResult }).catch(() => {});
 }
 
@@ -22,10 +22,60 @@ function updateState(newState) {
 function notifyContentScript(tabId, message) {
     chrome.tabs.sendMessage(tabId, message).catch(err => {
         console.warn('Failed to send message to content script:', err);
-        // Fallback to notification if content script is unreachable (e.g. chrome:// pages)
-        // But we prioritize the modal as requested.
-        // We already sent a notification in the main flow, so this is just for the overlay.
     });
+}
+
+// Helper to map errors to user-friendly messages
+function mapError(error) {
+    let code = error.code || 'UNKNOWN';
+    let status = error.status || 0;
+    let message = error.message || '';
+
+    // Determine type/code based on message/status if not already set
+    if (status === 429 || message.includes('429')) code = 'RATE_LIMIT_EXCEEDED';
+    else if (status === 401 || status === 403 || message.includes('API key')) code = 'API_KEY_INVALID';
+    else if (status === 404 || message.includes('MODEL_NOT_FOUND')) code = 'MODEL_NOT_FOUND';
+    else if (code === 'IMAGE_FETCH_FAILED') code = 'IMAGE_FETCH_FAILED';
+    else if (code === 'API_KEY_MISSING') code = 'API_KEY_MISSING';
+
+    let userTitle = '解析エラー';
+    let userMessage = `エラーが発生しました (${code})。時間をおいて再度お試しください。`;
+
+    switch (code) {
+        case 'RATE_LIMIT_EXCEEDED':
+            userTitle = '利用制限 (429)';
+            userMessage = 'APIの利用制限に達しました。無料枠をお使いの場合は、1〜2分待ってから再度お試しください。';
+            break;
+        case 'API_KEY_INVALID':
+        case 'API_KEY_MISSING':
+            userTitle = '設定エラー';
+            userMessage = 'APIキーが無効、または設定されていません。設定画面で正しいキーを入力してください。';
+            break;
+        case 'MODEL_NOT_FOUND':
+            userTitle = 'システム更新中';
+            userMessage = '指定されたAIモデルが見つかりません。しばらくしてから再度お試しください。';
+            break;
+        case 'IMAGE_FETCH_FAILED':
+            userTitle = '画像取得エラー';
+            userMessage = '画像のデータが大きすぎるか、取得できない形式です。別の画像でお試しください。';
+            break;
+        case 'NETWORK_ERROR':
+            userTitle = '通信エラー';
+            userMessage = '通信エラーが発生しました。インターネット接続を確認してください。';
+            break;
+        case 'AI_PARSE_ERROR':
+            userTitle = '解析エラー';
+            userMessage = 'AIからの応答を正常に読み取れませんでした。もう一度お試しください。';
+            break;
+    }
+
+    return {
+        type: 'ANALYSIS_ERROR',
+        code: code,
+        status: status,
+        title: userTitle,
+        message: userMessage
+    };
 }
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -37,20 +87,24 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 async function performAnalysis(url, apiKey) {
-    // 1. Fetch Image
     let blob;
     let mimeType;
     try {
         const response = await fetch(url);
-        if (!response.ok) throw new Error('IMAGE_FETCH_FAILED');
+        if (!response.ok) {
+            const err = new Error('Image Fetch Failed');
+            err.code = 'IMAGE_FETCH_FAILED';
+            throw err;
+        }
         blob = await response.blob();
         mimeType = blob.type;
     } catch (e) {
         console.error('Fetch failed:', e);
-        throw new Error('IMAGE_FETCH_FAILED');
+        const err = new Error('Network Error during Fetch');
+        err.code = e.code || 'IMAGE_FETCH_FAILED'; // Or NETWORK_ERROR
+        throw err;
     }
 
-    // Convert to Base64
     const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result.split(',')[1]);
@@ -58,7 +112,6 @@ async function performAnalysis(url, apiKey) {
         reader.readAsDataURL(blob);
     });
 
-    // 2. Call API
     return await GeminiClient.analyzeImage(apiKey, base64, mimeType);
 }
 
@@ -75,32 +128,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         const data = await chrome.storage.sync.get('geminiApiKey');
         const apiKey = data.geminiApiKey;
 
-        // Handle Missing Key - Immediate Error Modal
         if (!apiKey) {
-            const msg = 'APIキーが設定されていません。設定画面から入力してください。';
-
-            // Send Error to Content Script
-            notifyContentScript(tab.id, {
-                action: 'SHOW_ERROR',
-                title: '設定が必要です',
-                message: msg
-            });
-
-            // Fallback Notification
-            chrome.notifications.create('linzu-error', {
-                type: 'basic',
-                iconUrl: 'icon.png',
-                title: '設定が必要です',
-                message: msg,
-                priority: 2
-            });
-
-            // Open Options
-            chrome.tabs.create({ url: chrome.runtime.getURL('options.html?reason=missing_key') });
-            return;
+            const err = new Error('API Key Missing');
+            err.code = 'API_KEY_MISSING';
+            throw err;
         }
 
-        // Start Analysis
         updateState({ status: 'analyzing', imageUrl: info.srcUrl, error: null, data: null });
 
         chrome.notifications.create('linzu-start', {
@@ -116,7 +149,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         // Success
         updateState({ status: 'success', data: analysis });
 
-        // Send Result to Content Script (Modal)
         notifyContentScript(tab.id, {
             action: 'SHOW_RESULT',
             data: analysis
@@ -137,41 +169,32 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     } catch (error) {
         console.error('Background Analysis Error:', error);
 
-        let userMessage = '不明なエラーが発生しました。';
-        const msg = error.message || '';
-        let errTitle = '解析エラー';
+        const structuredError = mapError(error);
 
-        if (msg.includes('API_KEY_INVALID') || msg.includes('403')) {
-            userMessage = 'APIキーが無効です。設定を確認してください。';
-        } else if (msg.includes('MODEL_NOT_FOUND') || msg.includes('404')) {
-            userMessage = '指定されたAIモデルが見つかりません (システム更新待ち)。';
-        } else if (msg.includes('IMAGE_FETCH_FAILED')) {
-             userMessage = '画像のデータ取得に失敗しました。';
-        } else if (msg.includes('INVALID_JSON_PAYLOAD') || msg.includes('400')) {
-             userMessage = 'APIリクエスト形式が無効です (システム更新待ち)。';
-        } else if (msg.includes('AI_PARSE_ERROR')) {
-             userMessage = 'AIからの応答を解析できませんでした。';
-        } else if (msg.includes('429')) {
-             userMessage = 'APIの利用制限に達しました。1〜2分待ってから再度お試しください。';
-             errTitle = '利用制限 (429)';
-        }
+        updateState({ status: 'error', error: structuredError.message });
 
-        updateState({ status: 'error', error: userMessage });
-
-        // Send Error to Content Script (Modal) - CRITICAL REQUIREMENT
+        // Send Structured Error to Content Script
         notifyContentScript(tab.id, {
             action: 'SHOW_ERROR',
-            title: errTitle,
-            message: userMessage
+            ...structuredError // Spread title, message, code, etc.
         });
 
+        // Also Notification
         chrome.notifications.create('linzu-error', {
             type: 'basic',
             iconUrl: 'icon.png',
-            title: errTitle,
-            message: userMessage,
+            title: structuredError.title,
+            message: structuredError.message,
             priority: 2
         });
+
+        // Handle Key Missing Redirect
+        if (structuredError.code === 'API_KEY_MISSING' || structuredError.code === 'API_KEY_INVALID') {
+             // Only redirect if explicitly missing or invalid key action required
+             if (structuredError.code === 'API_KEY_MISSING') {
+                 chrome.tabs.create({ url: chrome.runtime.getURL('options.html?reason=missing_key') });
+             }
+        }
     }
   }
 });

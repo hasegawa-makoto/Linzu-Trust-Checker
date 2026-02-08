@@ -57,21 +57,18 @@ class GeminiClient {
 
     /**
      * Analyzes an image using the best available Gemini Flash model.
-     * @param {string} apiKey
-     * @param {string} base64Image
-     * @param {string} mimeType
-     * @returns {Promise<Object>} The parsed JSON result.
      */
     static async analyzeImage(apiKey, base64Image, mimeType) {
         if (!apiKey) {
-            throw new Error('API_KEY_MISSING');
+            const err = new Error('API_KEY_MISSING');
+            err.code = 'API_KEY_MISSING';
+            throw err;
         }
 
         const modelName = await this.getBestFlashModel(apiKey);
         const cleanModelName = modelName.startsWith('models/') ? modelName.slice(7) : modelName;
         const url = `${this.BASE_URL}/models/${cleanModelName}:generateContent?key=${apiKey}`;
 
-        // Model-agnostic prompt focused on logical analysis
         const promptText = `
 Role: You are an expert image forensics analyst.
 Task: Logically analyze the provided image for artifacts characteristic of AI generation.
@@ -100,7 +97,6 @@ Schema:
                     { inline_data: { mime_type: mimeType, data: base64Image } }
                 ]
             }]
-            // Removed generationConfig.response_mime_type to fix Invalid JSON payload error in v1
         };
 
         try {
@@ -114,18 +110,28 @@ Schema:
                 const errorData = await response.json().catch(() => ({}));
                 console.error('Gemini API Error:', errorData);
 
-                if (response.status === 404) throw new Error('MODEL_NOT_FOUND');
-                if (response.status === 403 || errorData.error?.message?.includes('API key')) throw new Error('API_KEY_INVALID');
-                if (response.status === 400 && errorData.error?.message?.includes('JSON')) throw new Error('INVALID_JSON_PAYLOAD');
+                // Create Structured Error
+                const message = errorData.error?.message || `API Error: ${response.status}`;
+                const err = new Error(message);
+                err.status = response.status;
+                err.apiError = errorData;
 
-                throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+                if (response.status === 404) err.code = 'MODEL_NOT_FOUND';
+                else if (response.status === 403 || message.includes('API key')) err.code = 'API_KEY_INVALID';
+                else if (response.status === 429) err.code = 'RATE_LIMIT_EXCEEDED';
+                else if (response.status === 400) err.code = 'INVALID_REQUEST';
+                else err.code = 'UNKNOWN_API_ERROR';
+
+                throw err;
             }
 
             const data = await response.json();
             let textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
             if (!textResult) {
-                throw new Error('AI_NO_RESPONSE');
+                const err = new Error('AI_NO_RESPONSE');
+                err.code = 'AI_NO_RESPONSE';
+                throw err;
             }
 
             // Cleanup potential Markdown wrapping
@@ -136,7 +142,6 @@ Schema:
                 textResult = textResult.replace(/^```\s*/, '').replace(/\s*```$/, '');
             }
 
-            // Find first '{' and last '}' just in case
             const start = textResult.indexOf('{');
             const end = textResult.lastIndexOf('}');
             if (start !== -1 && end !== -1) {
@@ -148,12 +153,19 @@ Schema:
                 return jsonResult;
             } catch (e) {
                 console.error('Failed to parse JSON:', textResult);
-                throw new Error('AI_PARSE_ERROR');
+                const err = new Error('AI_PARSE_ERROR');
+                err.code = 'AI_PARSE_ERROR';
+                throw err;
             }
 
         } catch (error) {
             console.error('Gemini Analysis Failed:', error);
-            throw error;
+            // Re-throw if it already has a code, otherwise wrap
+            if (error.code || error.status) throw error;
+
+            const err = new Error(error.message || 'Network/Unknown Error');
+            err.code = 'NETWORK_ERROR';
+            throw err;
         }
     }
 }

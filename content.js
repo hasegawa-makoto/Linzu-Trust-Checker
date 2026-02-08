@@ -17,7 +17,7 @@ function createOverlay(data, isError) {
 
     // Base Styles
     Object.assign(container.style, {
-        position: 'fixed', top: '20px', right: '20px', width: '300px',
+        position: 'fixed', top: '20px', right: '20px', width: '320px',
         backgroundColor: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderRadius: '8px',
         zIndex: '2147483647', fontFamily: 'sans-serif', border: '1px solid #e0e0e0',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
@@ -43,8 +43,11 @@ function createOverlay(data, isError) {
         backgroundColor: isError ? '#ffebee' : '#f8f9fa'
     });
 
+    // Use mapped title if available, else generic
+    const titleText = isError ? (data.title || 'エラー') : 'Linzu 解析結果';
+
     const title = document.createElement('strong');
-    title.textContent = isError ? (data.title || 'エラー') : 'Linzu 解析結果';
+    title.textContent = titleText;
     title.style.color = headerColor;
     title.style.fontSize = '14px';
     header.appendChild(title);
@@ -64,14 +67,24 @@ function createOverlay(data, isError) {
 
     if (isError) {
         const msg = document.createElement('div');
-        msg.textContent = data.message;
+        msg.textContent = data.message || '不明なエラーが発生しました。';
         msg.style.fontSize = '13px';
         msg.style.color = '#333';
         msg.style.lineHeight = '1.5';
         content.appendChild(msg);
 
+        // Show error code if available for debugging support
+        if (data.code && data.code !== 'UNKNOWN') {
+            const code = document.createElement('div');
+            code.textContent = `Code: ${data.code}`;
+            code.style.fontSize = '11px';
+            code.style.color = '#999';
+            code.style.marginTop = '8px';
+            content.appendChild(code);
+        }
+
         // Optional Action Button (e.g., Open Settings)
-        if (data.message.includes('設定画面')) {
+        if (data.code === 'API_KEY_MISSING' || data.code === 'API_KEY_INVALID') {
             const btn = document.createElement('button');
             btn.textContent = '設定画面を開く';
             Object.assign(btn.style, {
@@ -79,14 +92,9 @@ function createOverlay(data, isError) {
                 border: 'none', borderRadius: '4px', cursor: 'pointer', width: '100%', fontSize: '12px'
             });
             btn.addEventListener('click', () => {
-                // We can't open extension pages from content script directly usually,
-                // but we can tell background to do it?
-                // Actually `window.open` might work for extension URL if web accessible resource,
-                // but easier to just tell user to click icon or handle via message if needed.
-                // For now, simple message is enough as per requirement "Show popup on screen".
                 alert('ブラウザ右上のLinzuアイコン > ⚙️設定 から開いてください。');
             });
-            // content.appendChild(btn);
+            content.appendChild(btn);
         }
 
     } else {
@@ -135,7 +143,4 @@ function createOverlay(data, isError) {
 
     container.appendChild(content);
     document.body.appendChild(container);
-
-    // Auto-remove after 10 seconds if success, keep if error?
-    // Requirement says "Make sure user understands reason", so keep until closed is better.
 }

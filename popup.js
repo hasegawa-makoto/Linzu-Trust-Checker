@@ -4,18 +4,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const openSettingsLink = document.getElementById('openSettingsLink');
     const settingsBtn = document.getElementById('settingsBtn');
 
+    // States
     const stateIdle = document.getElementById('stateIdle');
     const stateAnalyzing = document.getElementById('stateAnalyzing');
     const stateSuccess = document.getElementById('stateSuccess');
     const stateError = document.getElementById('stateError');
 
+    // Result Fields
     const resultThumb = document.getElementById('resultThumb');
     const resultProb = document.getElementById('resultProb');
     const resultType = document.getElementById('resultType');
     const resultReasons = document.getElementById('resultReasons');
+    const probLabel = document.querySelector('.prob-label'); // Needs ID in HTML or querySelector
 
     const errorMsg = document.getElementById('errorMsg');
     const errorDetail = document.getElementById('errorDetail');
+
+    // --- I18N Initialization ---
+    function localize() {
+        document.querySelector('header h1').textContent = chrome.i18n.getMessage('extName');
+
+        // Idle
+        document.querySelector('#stateIdle .idle-text').innerHTML = chrome.i18n.getMessage('statusIdle');
+
+        // Analyzing
+        document.querySelector('#stateAnalyzing .idle-text').textContent = chrome.i18n.getMessage('statusAnalyzing');
+
+        // Labels
+        if(probLabel) probLabel.textContent = chrome.i18n.getMessage('labelProb');
+
+        // Buttons
+        if(settingsBtn) settingsBtn.innerHTML = `⚙️ ${chrome.i18n.getMessage('btnSettings')}`;
+
+        // Warnings
+        if(apiKeyWarning) {
+            apiKeyWarning.innerHTML = `${chrome.i18n.getMessage('warnApiKey')}<br><a id="openSettingsLink">${chrome.i18n.getMessage('warnApiKeyLink')}</a>`;
+            // Re-bind event listener because innerHTML replaced the element
+            document.getElementById('openSettingsLink').addEventListener('click', openOptions);
+        }
+    }
+    localize();
 
     function showState(state) {
         stateIdle.classList.remove('visible');
@@ -55,23 +83,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderResult(response.data, response.imageUrl);
             } else if (response.status === 'error') {
                 showState('error');
-                errorDetail.textContent = response.error || '不明なエラー';
+                errorMsg.textContent = chrome.i18n.getMessage('statusError');
+                errorDetail.textContent = response.error || 'Unknown Error';
             }
         });
     }
 
-    // Initial check
     checkStatus();
 
-    // Listen for updates (broadcast from background)
     chrome.runtime.onMessage.addListener((message) => {
         if (message.action === 'STATE_UPDATED') {
             checkStatus();
         }
     });
 
-    // Event Listeners
-    if (openSettingsLink) openSettingsLink.addEventListener('click', openOptions);
     if (settingsBtn) settingsBtn.addEventListener('click', openOptions);
 
     function renderResult(analysis, imageUrl) {
@@ -95,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } else {
             const li = document.createElement('li');
-            li.textContent = '特筆すべき理由はありません';
+            li.textContent = chrome.i18n.getMessage('noReasons');
             resultReasons.appendChild(li);
         }
     }

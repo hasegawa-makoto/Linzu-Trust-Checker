@@ -1,0 +1,49 @@
+{
+  "extName": { "message": "Linzu Trust Checker", "description": "拡張機能名" },
+  "extDesc": { "message": "AIで画像の信頼性を解析します。", "description": "拡張機能の説明" },
+
+  "contextMenuAnalyze": { "message": "Linzuでこの画像を解析", "description": "右クリックメニュー" },
+
+  "statusIdle": { "message": "解析したい画像を右クリックして<br>「Linzuで解析」を選択してください", "description": "待機中のメッセージ" },
+  "statusAnalyzing": { "message": "AIが画像を解析中...", "description": "解析中のメッセージ" },
+  "statusSuccess": { "message": "解析完了", "description": "成功時のタイトル" },
+  "statusError": { "message": "エラーが発生しました", "description": "エラー時のタイトル" },
+
+  "labelProb": { "message": "AI生成確率", "description": "確率のラベル" },
+  "labelType": { "message": "検出タイプ", "description": "タイプのラベル" },
+  "noReasons": { "message": "特筆すべき理由はありません", "description": "理由がない場合" },
+
+  "btnSettings": { "message": "設定", "description": "設定ボタン" },
+  "btnSave": { "message": "保存する", "description": "保存ボタン" },
+  "btnOpenSettings": { "message": "設定画面を開く", "description": "設定画面を開くボタン" },
+
+  "warnApiKey": { "message": "APIキーが設定されていません。", "description": "APIキー警告" },
+  "warnApiKeyLink": { "message": "設定画面を開く", "description": "警告内のリンク" },
+
+  "errTitle429": { "message": "利用制限 (429)", "description": "レート制限タイトル" },
+  "errMsg429": { "message": "APIの利用制限に達しました。無料枠をお使いの場合は、1〜2分待ってから再度お試しください。", "description": "レート制限メッセージ" },
+
+  "errTitleKey": { "message": "設定エラー", "description": "キーエラ―タイトル" },
+  "errMsgKey": { "message": "APIキーが無効、または設定されていません。設定画面で正しいキーを入力してください。", "description": "キーエラーメッセージ" },
+
+  "errTitleModel": { "message": "システム更新中", "description": "モデルエラータイトル" },
+  "errMsgModel": { "message": "指定されたAIモデルが見つかりません。しばらくしてから再度お試しください。", "description": "モデルエラーメッセージ" },
+
+  "errTitleNet": { "message": "通信エラー", "description": "ネットワークエラータイトル" },
+  "errMsgNet": { "message": "通信エラーが発生しました。インターネット接続を確認してください。", "description": "ネットワークエラーメッセージ" },
+
+  "errTitleParse": { "message": "解析エラー", "description": "パースエラータイトル" },
+  "errMsgParse": { "message": "AIからの応答を正常に読み取れませんでした。もう一度お試しください。", "description": "パースエラーメッセージ" },
+
+  "errTitleImage": { "message": "画像取得エラー", "description": "画像エラータイトル" },
+  "errMsgImage": { "message": "画像のデータが大きすぎるか、取得できない形式です。別の画像でお試しください。", "description": "画像エラーメッセージ" },
+
+  "optionsTitle": { "message": "Linzu 設定", "description": "設定ページタイトル" },
+  "optionsDesc": { "message": "Linzu Trust Checkerを使用するには、Google Gemini APIキーが必要です。", "description": "設定の説明" },
+  "optionsGetLink": { "message": "Google AI Studioでキーを取得", "description": "キー取得リンク" },
+  "optionsLabelKey": { "message": "Gemini API Key", "description": "キー入力ラベル" },
+  "optionsLabelLang": { "message": "表示言語 (Language)", "description": "言語選択ラベル" },
+  "optionsSaved": { "message": "保存しました！", "description": "保存完了" },
+  "optionsEnterKey": { "message": "APIキーを入力してください。", "description": "バリデーション" },
+  "optionsGuidance": { "message": "解析を始めるには、まずこちらにAPIキーを入力して保存してください。", "description": "誘導メッセージ" }
+}

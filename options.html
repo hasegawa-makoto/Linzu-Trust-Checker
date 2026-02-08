@@ -7,8 +7,8 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
         .container { background-color: white; border-radius: 8px; padding: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 400px; text-align: center; }
         h1 { color: #0056b3; margin-top: 0; }
-        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
-        input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-bottom: 16px; font-size: 14px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; text-align: left; }
+        input[type="text"], select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-bottom: 16px; font-size: 14px; }
         button { background-color: #0056b3; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; width: 100%; transition: background-color 0.2s; }
         button:hover { background-color: #004494; }
         .explanation { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.5; text-align: left; }
@@ -17,20 +17,30 @@
         .status-message.error { color: #d32f2f; }
         a { color: #0056b3; text-decoration: none; }
         a:hover { text-decoration: underline; }
+        .lang-section { text-align: left; margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Linzu 設定</h1>
+        <h1 data-i18n="optionsTitle">Linzu Settings</h1>
+
         <div class="explanation">
-            Linzu Trust Checkerを使用するには、Google Gemini APIキーが必要です。<br>
-            <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studioでキーを取得</a>し、以下に入力してください。
+            <span data-i18n="optionsDesc">Explanation</span><br>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" data-i18n="optionsGetLink">Get API Key</a>
         </div>
 
-        <label for="apiKey">Gemini API Key</label>
+        <label for="apiKey" data-i18n="optionsLabelKey">API Key</label>
         <input type="text" id="apiKey" placeholder="AIzaSy...">
 
-        <button id="saveButton">保存する</button>
+        <div class="lang-section">
+            <label for="languageSelect" data-i18n="optionsLabelLang">Language (Prompt Output)</label>
+            <select id="languageSelect">
+                <option value="ja">日本語 (Japanese)</option>
+                <option value="en">English</option>
+            </select>
+        </div>
+
+        <button id="saveButton" data-i18n="btnSave">Save</button>
 
         <div id="status" class="status-message"></div>
     </div>

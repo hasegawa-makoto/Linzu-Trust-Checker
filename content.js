@@ -8,7 +8,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 function createOverlay(data, isError) {
-    // Remove existing modal if any
     const existing = document.getElementById('linzu-modal-container');
     if (existing) existing.remove();
 
@@ -24,7 +23,6 @@ function createOverlay(data, isError) {
         animation: 'linzuSlideIn 0.3s ease-out'
     });
 
-    // Add Keyframes
     const styleSheet = document.createElement("style");
     styleSheet.innerText = `
       @keyframes linzuSlideIn {
@@ -43,8 +41,7 @@ function createOverlay(data, isError) {
         backgroundColor: isError ? '#ffebee' : '#f8f9fa'
     });
 
-    // Use mapped title if available, else generic
-    const titleText = isError ? (data.title || 'エラー') : 'Linzu 解析結果';
+    const titleText = isError ? (data.title || chrome.i18n.getMessage('statusError')) : chrome.i18n.getMessage('extName');
 
     const title = document.createElement('strong');
     title.textContent = titleText;
@@ -67,13 +64,12 @@ function createOverlay(data, isError) {
 
     if (isError) {
         const msg = document.createElement('div');
-        msg.textContent = data.message || '不明なエラーが発生しました。';
+        msg.textContent = data.message || chrome.i18n.getMessage('statusError');
         msg.style.fontSize = '13px';
         msg.style.color = '#333';
         msg.style.lineHeight = '1.5';
         content.appendChild(msg);
 
-        // Show error code if available for debugging support
         if (data.code && data.code !== 'UNKNOWN') {
             const code = document.createElement('div');
             code.textContent = `Code: ${data.code}`;
@@ -83,16 +79,15 @@ function createOverlay(data, isError) {
             content.appendChild(code);
         }
 
-        // Optional Action Button (e.g., Open Settings)
         if (data.code === 'API_KEY_MISSING' || data.code === 'API_KEY_INVALID') {
             const btn = document.createElement('button');
-            btn.textContent = '設定画面を開く';
+            btn.textContent = chrome.i18n.getMessage('btnOpenSettings');
             Object.assign(btn.style, {
                 marginTop: '12px', padding: '8px 12px', background: headerColor, color: '#fff',
                 border: 'none', borderRadius: '4px', cursor: 'pointer', width: '100%', fontSize: '12px'
             });
             btn.addEventListener('click', () => {
-                alert('ブラウザ右上のLinzuアイコン > ⚙️設定 から開いてください。');
+                alert('Please check the extension icon > Settings.');
             });
             content.appendChild(btn);
         }
@@ -110,7 +105,7 @@ function createOverlay(data, isError) {
         else prob.style.color = '#2e7d32';
 
         const label = document.createElement('div');
-        label.textContent = 'AI生成確率';
+        label.textContent = chrome.i18n.getMessage('labelProb');
         label.style.fontSize = '10px';
         label.style.color = '#666';
         label.style.marginBottom = '2px';
@@ -131,7 +126,7 @@ function createOverlay(data, isError) {
             paddingLeft: '16px', margin: '0', fontSize: '12px', color: '#444', lineHeight: '1.4'
         });
 
-        const reasons = data.reasons || ['特筆すべき理由はありません'];
+        const reasons = data.reasons || [chrome.i18n.getMessage('noReasons')];
         reasons.forEach(r => {
             const li = document.createElement('li');
             li.textContent = r;

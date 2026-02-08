@@ -58,7 +58,7 @@ class GeminiClient {
     /**
      * Analyzes an image using the best available Gemini Flash model.
      */
-    static async analyzeImage(apiKey, base64Image, mimeType) {
+    static async analyzeImage(apiKey, base64Image, mimeType, lang = 'ja') {
         if (!apiKey) {
             const err = new Error('API_KEY_MISSING');
             err.code = 'API_KEY_MISSING';
@@ -68,6 +68,9 @@ class GeminiClient {
         const modelName = await this.getBestFlashModel(apiKey);
         const cleanModelName = modelName.startsWith('models/') ? modelName.slice(7) : modelName;
         const url = `${this.BASE_URL}/models/${cleanModelName}:generateContent?key=${apiKey}`;
+
+        // Determine language name for prompt
+        const langName = lang === 'en' ? 'English' : 'Japanese';
 
         const promptText = `
 Role: You are an expert image forensics analyst.
@@ -81,12 +84,14 @@ Focus on:
 
 Output Requirement:
 You must output VALID JSON only. Do not wrap in markdown code blocks.
+The 'reasons' and 'detected_type' must be written in ${langName}.
+
 Schema:
 {
   "is_ai_likely": boolean,
   "ai_probability": integer (0-100),
   "detected_type": string (e.g., "AI Generated Photo", "Real Photo", "AI Illustration"),
-  "reasons": string[] (List of specific Japanese descriptions of artifacts found)
+  "reasons": string[] (List of specific ${langName} descriptions of artifacts found)
 }
 `;
 

@@ -18,6 +18,16 @@ function updateState(newState) {
     chrome.runtime.sendMessage({ action: 'STATE_UPDATED', state: lastResult }).catch(() => {});
 }
 
+// Helper to send message to active tab content script
+function notifyContentScript(tabId, message) {
+    chrome.tabs.sendMessage(tabId, message).catch(err => {
+        console.warn('Failed to send message to content script:', err);
+        // Fallback to notification if content script is unreachable (e.g. chrome:// pages)
+        // But we prioritize the modal as requested.
+        // We already sent a notification in the main flow, so this is just for the overlay.
+    });
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "analyze-image",
@@ -27,7 +37,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 async function performAnalysis(url, apiKey) {
-    // 1. Fetch Image (Privileged Service Worker Fetch)
+    // 1. Fetch Image
     let blob;
     let mimeType;
     try {
@@ -65,9 +75,18 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         const data = await chrome.storage.sync.get('geminiApiKey');
         const apiKey = data.geminiApiKey;
 
-        // Handle Missing Key
+        // Handle Missing Key - Immediate Error Modal
         if (!apiKey) {
-            const msg = 'APIキーが設定されていません。設定画面でキーを入力してください。';
+            const msg = 'APIキーが設定されていません。設定画面から入力してください。';
+
+            // Send Error to Content Script
+            notifyContentScript(tab.id, {
+                action: 'SHOW_ERROR',
+                title: '設定が必要です',
+                message: msg
+            });
+
+            // Fallback Notification
             chrome.notifications.create('linzu-error', {
                 type: 'basic',
                 iconUrl: 'icon.png',
@@ -75,6 +94,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 message: msg,
                 priority: 2
             });
+
+            // Open Options
             chrome.tabs.create({ url: chrome.runtime.getURL('options.html?reason=missing_key') });
             return;
         }
@@ -95,6 +116,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         // Success
         updateState({ status: 'success', data: analysis });
 
+        // Send Result to Content Script (Modal)
+        notifyContentScript(tab.id, {
+            action: 'SHOW_RESULT',
+            data: analysis
+        });
+
         const prob = analysis.ai_probability;
         const resultTitle = `AI生成確率: ${prob}%`;
         const resultMessage = `${analysis.detected_type}\n理由: ${analysis.reasons?.[0] || '詳細をポップアップで確認'}`;
@@ -112,27 +139,36 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
         let userMessage = '不明なエラーが発生しました。';
         const msg = error.message || '';
+        let errTitle = '解析エラー';
 
         if (msg.includes('API_KEY_INVALID') || msg.includes('403')) {
             userMessage = 'APIキーが無効です。設定を確認してください。';
         } else if (msg.includes('MODEL_NOT_FOUND') || msg.includes('404')) {
             userMessage = '指定されたAIモデルが見つかりません (システム更新待ち)。';
         } else if (msg.includes('IMAGE_FETCH_FAILED')) {
-             userMessage = '解析データの準備に失敗しました。';
+             userMessage = '画像のデータ取得に失敗しました。';
         } else if (msg.includes('INVALID_JSON_PAYLOAD') || msg.includes('400')) {
              userMessage = 'APIリクエスト形式が無効です (システム更新待ち)。';
         } else if (msg.includes('AI_PARSE_ERROR')) {
              userMessage = 'AIからの応答を解析できませんでした。';
         } else if (msg.includes('429')) {
              userMessage = 'APIの利用制限に達しました。1〜2分待ってから再度お試しください。';
+             errTitle = '利用制限 (429)';
         }
 
         updateState({ status: 'error', error: userMessage });
 
+        // Send Error to Content Script (Modal) - CRITICAL REQUIREMENT
+        notifyContentScript(tab.id, {
+            action: 'SHOW_ERROR',
+            title: errTitle,
+            message: userMessage
+        });
+
         chrome.notifications.create('linzu-error', {
             type: 'basic',
             iconUrl: 'icon.png',
-            title: '解析エラー',
+            title: errTitle,
             message: userMessage,
             priority: 2
         });

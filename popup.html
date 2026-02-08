@@ -7,27 +7,25 @@
   <body>
     <div class="container">
       <header>
-        <h1>Linzu</h1>
+        <h1 data-i18n="extName"></h1>
       </header>
 
       <div id="apiKeyWarning">
-        APIキーが設定されていません。<br>
-        <a id="openSettingsLink">設定画面を開く</a>
+        <span data-i18n="warnApiKey"></span><br>
+        <a id="openSettingsLink" data-i18n="warnApiKeyLink"></a>
       </div>
 
       <main>
         <!-- Idle State -->
         <div id="stateIdle" class="state-container visible">
           <div class="idle-icon">🖱️</div>
-          <div class="idle-text">
-            解析したい画像を<br><strong>右クリック</strong>して<br>「Linzuで解析」を選択してください
-          </div>
+          <div class="idle-text" data-i18n="statusIdle"></div>
         </div>
 
         <!-- Analyzing State -->
         <div id="stateAnalyzing" class="state-container">
           <div class="spinner"></div>
-          <div class="idle-text">AIが画像を解析中...</div>
+          <div class="idle-text" data-i18n="statusAnalyzing"></div>
         </div>
 
         <!-- Success State -->
@@ -35,7 +33,7 @@
           <div class="result-card">
             <img id="resultThumb" class="result-thumb" src="">
 
-            <div class="prob-label">AI生成確率</div>
+            <div class="prob-label" data-i18n="labelProb"></div>
             <div id="resultProb" class="prob-value">--%</div>
 
             <div id="resultType" class="type-badge">Unknown</div>
@@ -47,17 +45,18 @@
         <!-- Error State -->
         <div id="stateError" class="state-container">
           <div class="error-icon">⚠️</div>
-          <div id="errorMsg" class="error-msg">エラーが発生しました</div>
+          <div id="errorMsg" class="error-msg" data-i18n="statusError"></div>
           <div id="errorDetail" class="error-detail"></div>
         </div>
       </main>
 
       <footer>
-        <button id="settingsBtn" class="settings-btn">
-          ⚙️ 設定
+        <button id="settingsBtn" class="settings-btn" data-i18n="btnSettings">
+          ⚙️
         </button>
       </footer>
     </div>
+    <script src="libs/i18n_manager.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

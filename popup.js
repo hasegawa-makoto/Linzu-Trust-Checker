@@ -1,4 +1,9 @@
-document.addEventListener('DOMContentLoaded', () => {
+const i18n = new I18nManager();
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await i18n.init();
+    i18n.localizePage();
+
     // UI Elements
     const apiKeyWarning = document.getElementById('apiKeyWarning');
     const openSettingsLink = document.getElementById('openSettingsLink');
@@ -15,35 +20,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultProb = document.getElementById('resultProb');
     const resultType = document.getElementById('resultType');
     const resultReasons = document.getElementById('resultReasons');
-    const probLabel = document.querySelector('.prob-label'); // Needs ID in HTML or querySelector
 
     const errorMsg = document.getElementById('errorMsg');
     const errorDetail = document.getElementById('errorDetail');
 
-    // --- I18N Initialization ---
-    function localize() {
-        document.querySelector('header h1').textContent = chrome.i18n.getMessage('extName');
-
-        // Idle
-        document.querySelector('#stateIdle .idle-text').innerHTML = chrome.i18n.getMessage('statusIdle');
-
-        // Analyzing
-        document.querySelector('#stateAnalyzing .idle-text').textContent = chrome.i18n.getMessage('statusAnalyzing');
-
-        // Labels
-        if(probLabel) probLabel.textContent = chrome.i18n.getMessage('labelProb');
-
-        // Buttons
-        if(settingsBtn) settingsBtn.innerHTML = `⚙️ ${chrome.i18n.getMessage('btnSettings')}`;
-
-        // Warnings
-        if(apiKeyWarning) {
-            apiKeyWarning.innerHTML = `${chrome.i18n.getMessage('warnApiKey')}<br><a id="openSettingsLink">${chrome.i18n.getMessage('warnApiKeyLink')}</a>`;
-            // Re-bind event listener because innerHTML replaced the element
-            document.getElementById('openSettingsLink').addEventListener('click', openOptions);
-        }
-    }
-    localize();
+    // Manual button update for icon + text
+    if(settingsBtn) settingsBtn.innerHTML = `⚙️ ${i18n.getMessage('btnSettings')}`;
 
     function showState(state) {
         stateIdle.classList.remove('visible');
@@ -83,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderResult(response.data, response.imageUrl);
             } else if (response.status === 'error') {
                 showState('error');
-                errorMsg.textContent = chrome.i18n.getMessage('statusError');
+                errorMsg.textContent = i18n.getMessage('statusError');
                 errorDetail.textContent = response.error || 'Unknown Error';
             }
         });
@@ -97,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    if (openSettingsLink) openSettingsLink.addEventListener('click', openOptions);
     if (settingsBtn) settingsBtn.addEventListener('click', openOptions);
 
     function renderResult(analysis, imageUrl) {
@@ -120,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } else {
             const li = document.createElement('li');
-            li.textContent = chrome.i18n.getMessage('noReasons');
+            li.textContent = i18n.getMessage('noReasons');
             resultReasons.appendChild(li);
         }
     }

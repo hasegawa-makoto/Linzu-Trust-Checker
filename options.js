@@ -1,14 +1,16 @@
 const i18n = new I18nManager();
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize I18n
     await i18n.init();
     i18n.localizePage();
 
     const apiKeyInput = document.getElementById('apiKey');
+    const licenseKeyInput = document.getElementById('licenseKey');
     const languageSelect = document.getElementById('languageSelect');
     const saveButton = document.getElementById('saveButton');
+    const activateBtn = document.getElementById('activateBtn');
     const statusMessage = document.getElementById('status');
+    const licenseStatus = document.getElementById('licenseStatus');
     const introText = document.querySelector('.explanation');
 
     // 1. Check for Query Params (e.g., ?reason=missing_key)
@@ -23,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         apiKeyInput.focus();
     }
 
-    // 2. Load API Key and Language
+    // 2. Load API Key, Language, and License
     chrome.storage.sync.get(['geminiApiKey', 'outputLanguage'], (data) => {
         if (data.geminiApiKey) {
             apiKeyInput.value = data.geminiApiKey;
@@ -31,24 +33,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (data.outputLanguage) {
             languageSelect.value = data.outputLanguage;
         } else {
-            // Default to browser language if starts with ja, else en
             const lang = i18n.getBrowserLang();
             languageSelect.value = lang;
         }
-        // Force re-localize if the loaded lang differs from what I18nManager guessed initially (rare but possible)
+        // Check for mismatch
         if (data.outputLanguage && data.outputLanguage !== i18n.currentLang) {
              i18n.init(data.outputLanguage).then(() => i18n.localizePage());
         }
     });
 
-    // Handle Language Change Immediately
+    // Check License Status
+    updateLicenseStatus();
+
+    async function updateLicenseStatus() {
+        const license = await LicenseManager.getLicense();
+        if (license && license.key) {
+            licenseStatus.textContent = i18n.getMessage('licenseActive');
+            licenseStatus.className = 'license-status status-active';
+            licenseKeyInput.value = license.key;
+            licenseKeyInput.disabled = true;
+            activateBtn.disabled = true;
+            activateBtn.textContent = i18n.getMessage('licenseActive');
+        } else {
+            licenseStatus.textContent = i18n.getMessage('licenseInactive');
+            licenseStatus.className = 'license-status status-inactive';
+        }
+    }
+
+    // Handle Language Change
     languageSelect.addEventListener('change', async () => {
         const newLang = languageSelect.value;
         await i18n.init(newLang);
         i18n.localizePage();
+        updateLicenseStatus(); // Re-localize status text
     });
 
-    // 3. Save Settings
+    // 3. Save Settings (API Key & Lang)
     saveButton.addEventListener('click', () => {
         const key = apiKeyInput.value.trim();
         const lang = languageSelect.value;
@@ -69,5 +89,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 statusMessage.textContent = '';
             }, 2000);
         });
+    });
+
+    // 4. Activate License
+    activateBtn.addEventListener('click', async () => {
+        const key = licenseKeyInput.value.trim();
+        if (!key) return;
+
+        activateBtn.disabled = true;
+        activateBtn.textContent = i18n.getMessage('statusLicenseCheck');
+        statusMessage.textContent = '';
+
+        const result = await LicenseManager.activate(key);
+
+        if (result.success) {
+            statusMessage.textContent = i18n.getMessage('licenseSuccess');
+            statusMessage.className = 'status-message success';
+            updateLicenseStatus();
+        } else {
+            activateBtn.disabled = false;
+            activateBtn.textContent = i18n.getMessage('btnActivate');
+            statusMessage.textContent = `${i18n.getMessage('licenseInvalid')}: ${result.error}`;
+            statusMessage.className = 'status-message error';
+        }
     });
 });

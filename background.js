@@ -1,4 +1,4 @@
-importScripts('libs/api_client.js');
+importScripts('libs/api_client.js', 'libs/license_manager.js');
 
 // Linzu Trust Checker - Background Script
 let lastResult = {
@@ -14,14 +14,12 @@ function updateState(newState) {
     chrome.runtime.sendMessage({ action: 'STATE_UPDATED', state: lastResult }).catch(() => {});
 }
 
-// Helper to send message to active tab content script
 function notifyContentScript(tabId, message) {
     chrome.tabs.sendMessage(tabId, message).catch(err => {
         console.warn('Failed to send message to content script:', err);
     });
 }
 
-// Helper to map errors to user-friendly messages using i18n keys
 function mapError(error) {
     let code = error.code || 'UNKNOWN';
     let status = error.status || 0;
@@ -32,9 +30,10 @@ function mapError(error) {
     else if (status === 404 || message.includes('MODEL_NOT_FOUND')) code = 'MODEL_NOT_FOUND';
     else if (code === 'IMAGE_FETCH_FAILED') code = 'IMAGE_FETCH_FAILED';
     else if (code === 'API_KEY_MISSING') code = 'API_KEY_MISSING';
+    else if (code === 'LICENSE_REQUIRED') code = 'LICENSE_REQUIRED';
 
     let userTitle = chrome.i18n.getMessage('statusError');
-    let userMessage = chrome.i18n.getMessage('errMsgNet'); // Default
+    let userMessage = chrome.i18n.getMessage('errMsgNet');
 
     switch (code) {
         case 'RATE_LIMIT_EXCEEDED':
@@ -61,6 +60,10 @@ function mapError(error) {
         case 'AI_PARSE_ERROR':
             userTitle = chrome.i18n.getMessage('errTitleParse');
             userMessage = chrome.i18n.getMessage('errMsgParse');
+            break;
+        case 'LICENSE_REQUIRED':
+            userTitle = chrome.i18n.getMessage('errTitleLicense');
+            userMessage = chrome.i18n.getMessage('errMsgLicense');
             break;
     }
 
@@ -114,14 +117,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'GET_LAST_RESULT') {
         sendResponse(lastResult);
     }
+    if (message.action === 'ANALYZE_IMAGE_REQUEST') {
+        // Manual Request from Popup (Check License Here Too)
+        (async () => {
+            const hasLicense = await LicenseManager.validate();
+            if (!hasLicense) {
+                sendResponse({ success: false, error: 'LICENSE_REQUIRED' });
+                return;
+            }
+            // If license valid, proceed...
+            // BUT popup.js flow currently calls background just to "proxy".
+            // We need to implement proper manual flow if we want consistency.
+            // For now, popup is mainly for status viewing, context menu is main entry.
+            // If the user uses the "Analyze" button in popup list (if re-enabled or legacy),
+            // we should perform license check.
+            performAnalysis(message.url, message.apiKey, 'ja') // Default lang or pass it
+                .then(res => sendResponse({ success: true, data: res }))
+                .catch(err => sendResponse({ success: false, error: err.code || err.message }));
+        })();
+        return true;
+    }
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "analyze-image") {
     try {
+        // 1. Validate License First
+        const hasLicense = await LicenseManager.validate();
+        if (!hasLicense) {
+            const err = new Error('License Required');
+            err.code = 'LICENSE_REQUIRED';
+            throw err;
+        }
+
         const data = await chrome.storage.sync.get(['geminiApiKey', 'outputLanguage']);
         const apiKey = data.geminiApiKey;
-        const lang = data.outputLanguage || 'ja'; // Default to Japanese if not set (or use browser lang)
+        const lang = data.outputLanguage || 'ja';
 
         if (!apiKey) {
             const err = new Error('API Key Missing');
@@ -172,6 +203,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             ...structuredError
         });
 
+        // Don't show redundant notification if modal is likely shown,
+        // but for critical errors (License/Auth), notification is good backup.
         chrome.notifications.create('linzu-error', {
             type: 'basic',
             iconUrl: 'icon.png',

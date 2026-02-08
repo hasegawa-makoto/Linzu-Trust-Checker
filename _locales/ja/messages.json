@@ -8,6 +8,7 @@
   "statusAnalyzing": { "message": "AIが画像を解析中...", "description": "解析中のメッセージ" },
   "statusSuccess": { "message": "解析完了", "description": "成功時のタイトル" },
   "statusError": { "message": "エラーが発生しました", "description": "エラー時のタイトル" },
+  "statusLicenseCheck": { "message": "ライセンスを確認中...", "description": "ライセンス確認中" },
 
   "labelProb": { "message": "AI生成確率", "description": "確率のラベル" },
   "labelType": { "message": "検出タイプ", "description": "タイプのラベル" },
@@ -16,6 +17,7 @@
   "btnSettings": { "message": "設定", "description": "設定ボタン" },
   "btnSave": { "message": "保存する", "description": "保存ボタン" },
   "btnOpenSettings": { "message": "設定画面を開く", "description": "設定画面を開くボタン" },
+  "btnActivate": { "message": "認証する", "description": "認証ボタン" },
 
   "warnApiKey": { "message": "APIキーが設定されていません。", "description": "APIキー警告" },
   "warnApiKeyLink": { "message": "設定画面を開く", "description": "警告内のリンク" },
@@ -38,12 +40,21 @@
   "errTitleImage": { "message": "画像取得エラー", "description": "画像エラータイトル" },
   "errMsgImage": { "message": "画像のデータが大きすぎるか、取得できない形式です。別の画像でお試しください。", "description": "画像エラーメッセージ" },
 
+  "errTitleLicense": { "message": "ライセンス認証が必要です", "description": "ライセンスエラータイトル" },
+  "errMsgLicense": { "message": "解析を行うには有効なライセンスが必要です。ライセンスを購入してください。", "description": "ライセンスエラーメッセージ" },
+
   "optionsTitle": { "message": "Linzu 設定", "description": "設定ページタイトル" },
   "optionsDesc": { "message": "Linzu Trust Checkerを使用するには、Google Gemini APIキーが必要です。", "description": "設定の説明" },
   "optionsGetLink": { "message": "Google AI Studioでキーを取得", "description": "キー取得リンク" },
   "optionsLabelKey": { "message": "Gemini API Key", "description": "キー入力ラベル" },
   "optionsLabelLang": { "message": "表示言語 (Language)", "description": "言語選択ラベル" },
+  "optionsLabelLicense": { "message": "ライセンスキー", "description": "ライセンス入力ラベル" },
   "optionsSaved": { "message": "保存しました！", "description": "保存完了" },
   "optionsEnterKey": { "message": "APIキーを入力してください。", "description": "バリデーション" },
-  "optionsGuidance": { "message": "解析を始めるには、まずこちらにAPIキーを入力して保存してください。", "description": "誘導メッセージ" }
+  "optionsGuidance": { "message": "解析を始めるには、まずこちらにAPIキーを入力して保存してください。", "description": "誘導メッセージ" },
+  "licenseActive": { "message": "ライセンス有効", "description": "ライセンス有効状態" },
+  "licenseInactive": { "message": "未認証", "description": "ライセンス無効状態" },
+  "licenseSuccess": { "message": "ライセンス認証に成功しました！", "description": "認証成功" },
+  "licenseInvalid": { "message": "無効なライセンスキーです", "description": "認証失敗" },
+  "linkPurchase": { "message": "ライセンスを購入する", "description": "購入リンク" }
 }

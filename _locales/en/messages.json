@@ -8,6 +8,7 @@
   "statusAnalyzing": { "message": "Analyzing image with AI...", "description": "Analyzing status text" },
   "statusSuccess": { "message": "Analysis Complete", "description": "Success status title" },
   "statusError": { "message": "Error Occurred", "description": "Error status title" },
+  "statusLicenseCheck": { "message": "Checking License...", "description": "Status when activating license" },
 
   "labelProb": { "message": "AI Probability", "description": "Label for probability score" },
   "labelType": { "message": "Detected Type", "description": "Label for image type" },
@@ -16,6 +17,7 @@
   "btnSettings": { "message": "Settings", "description": "Settings button text" },
   "btnSave": { "message": "Save", "description": "Save button text" },
   "btnOpenSettings": { "message": "Open Settings", "description": "Button to open settings page" },
+  "btnActivate": { "message": "Activate", "description": "Activate button text" },
 
   "warnApiKey": { "message": "API Key is missing.", "description": "Warning banner" },
   "warnApiKeyLink": { "message": "Open Settings", "description": "Link text in warning banner" },
@@ -38,12 +40,21 @@
   "errTitleImage": { "message": "Image Error", "description": "Error title for image fetch issues" },
   "errMsgImage": { "message": "Failed to prepare image data. The image may be protected or too large.", "description": "Error message for image fetch issues" },
 
+  "errTitleLicense": { "message": "License Required", "description": "Error title for license issues" },
+  "errMsgLicense": { "message": "A valid license is required to perform analysis. Please purchase a license.", "description": "Error message for license issues" },
+
   "optionsTitle": { "message": "Linzu Settings", "description": "Options page title" },
   "optionsDesc": { "message": "To use Linzu Trust Checker, you need a Google Gemini API Key.", "description": "Options explanation" },
   "optionsGetLink": { "message": "Get API Key from Google AI Studio", "description": "Link text" },
   "optionsLabelKey": { "message": "Gemini API Key", "description": "Input label" },
   "optionsLabelLang": { "message": "Language", "description": "Language selection label" },
+  "optionsLabelLicense": { "message": "License Key", "description": "License input label" },
   "optionsSaved": { "message": "Settings saved!", "description": "Success message" },
   "optionsEnterKey": { "message": "Please enter an API Key.", "description": "Validation message" },
-  "optionsGuidance": { "message": "To start analysis, please enter and save your API Key here.", "description": "Guidance when redirected" }
+  "optionsGuidance": { "message": "To start analysis, please enter and save your API Key here.", "description": "Guidance when redirected" },
+  "licenseActive": { "message": "License Active", "description": "License status active" },
+  "licenseInactive": { "message": "License Inactive", "description": "License status inactive" },
+  "licenseSuccess": { "message": "License Activated Successfully!", "description": "Activation success message" },
+  "licenseInvalid": { "message": "Invalid License Key", "description": "Activation failure message" },
+  "linkPurchase": { "message": "Purchase License", "description": "Link to buy license" }
 }

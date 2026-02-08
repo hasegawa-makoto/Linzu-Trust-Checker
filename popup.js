@@ -145,13 +145,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } catch (err) {
                     // Specific Error Handling for User Friendliness
-                    if (err.message.includes('MODEL_NOT_FOUND') || err.message.includes('404')) {
-                         showError('現在システムを更新中です。しばらくしてから再度お試しください。');
-                    } else if (err.message.includes('API Key')) {
-                         showError('APIキーが無効のようです。設定画面で再確認してください。');
-                    } else {
-                         showError(`分析エラー: ${err.message}`);
+                    let userMessage = `分析エラー: ${err.message}`;
+                    const msg = err.message || '';
+
+                    if (msg.includes('MODEL_NOT_FOUND') || msg.includes('404')) {
+                         userMessage = '現在システムを更新中です。しばらくしてから再度お試しください。';
+                    } else if (msg.includes('API_KEY_INVALID') || msg.includes('403')) {
+                         userMessage = 'APIキーが無効のようです。設定画面で再確認してください。';
+                    } else if (msg.includes('INVALID_JSON_PAYLOAD') || msg.includes('400')) {
+                         userMessage = 'APIリクエスト形式が無効です (システム更新待ち)。';
+                    } else if (msg.includes('AI_PARSE_ERROR')) {
+                         userMessage = 'AIからの応答を解析できませんでした。';
+                    } else if (msg.includes('IMAGE_FETCH_FAILED')) {
+                         userMessage = '画像の取得に失敗しました。';
                     }
+
+                    showError(userMessage);
                 }
             });
         });

@@ -8,69 +8,38 @@ class GeminiClient {
 
     /**
      * Gets the best available "Flash" model dynamically.
-     * Strategies:
-     * 1. Check for 'gemini-2.0-flash' (Current stable/latest as per knowledge).
-     * 2. Fallback to 'gemini-1.5-flash' if 2.0 is not available or errors.
-     * 3. Ideally, we would list models, but that requires an extra RTT.
-     *    For this implementation, we will try to use the generic latest alias if supported,
-     *    or a list of known high-performance flash models in descending order.
-     *
-     *    However, `gemini-1.5-flash` is the current workhorse. `gemini-2.0-flash` is newer.
-     *    The user requested "always latest stable alias (gemini-flash)".
-     *    So we will prioritize 'gemini-2.0-flash' or just 'gemini-1.5-flash' if that's what we have.
-     *    Actually, let's try to fetch the list of models and pick the latest one with "flash" in the name.
      */
     static async getBestFlashModel(apiKey) {
         const cacheKey = 'linzu_cached_model_v2';
 
         try {
-            // Check cache first
             const cache = await new Promise(resolve => chrome.storage.local.get(cacheKey, resolve));
             if (cache[cacheKey] && cache[cacheKey].timestamp > Date.now() - 24 * 60 * 60 * 1000) {
                 return cache[cacheKey].modelName;
             }
 
-            // Fetch available models
             const response = await fetch(`${this.BASE_URL}/models?key=${apiKey}`);
             if (!response.ok) throw new Error('Failed to list models');
 
             const data = await response.json();
             const models = data.models || [];
 
-            // Filter for 'flash' models that support generation
             const flashModels = models.filter(m =>
                 m.name.includes('flash') &&
                 m.supportedGenerationMethods &&
                 m.supportedGenerationMethods.includes('generateContent')
             );
 
-            // Sort to find the "latest"
-            // Strategy: Look for "latest" alias first, then version numbers.
-            // But usually the API returns specific versions.
-            // Let's sort by version number descending.
-            // Names are like "models/gemini-1.5-flash", "models/gemini-1.5-flash-001"
-
+            // Sort by version number descending
             flashModels.sort((a, b) => {
-                // simple string compare might be enough if versioning is consistent
-                // "gemini-2.0" > "gemini-1.5"
                 return b.name.localeCompare(a.name);
             });
 
-            // Prefer 'gemini-2.0-flash' over 'gemini-1.5-flash' if available
-            // Actually, simply sorting descending by name should put 2.0 before 1.5
-
-            let bestModel = 'models/gemini-1.5-flash'; // Safe fallback
+            let bestModel = 'models/gemini-1.5-flash';
             if (flashModels.length > 0) {
                 bestModel = flashModels[0].name;
             }
 
-            // Allow manual override or specific alias check?
-            // User asked for "gemini-flash" alias if possible.
-            // If the list contains 'gemini-flash', use it?
-            // Usually aliases aren't listed in the standard models endpoint the same way or might be separate.
-            // Let's stick to the latest specific version found.
-
-            // Update cache
             chrome.storage.local.set({
                 [cacheKey]: {
                     modelName: bestModel,
@@ -95,13 +64,11 @@ class GeminiClient {
      */
     static async analyzeImage(apiKey, base64Image, mimeType) {
         if (!apiKey) {
-            throw new Error('API Key is missing.');
+            throw new Error('API_KEY_MISSING');
         }
 
         const modelName = await this.getBestFlashModel(apiKey);
-        // Ensure model name doesn't double-prefix 'models/'
         const cleanModelName = modelName.startsWith('models/') ? modelName.slice(7) : modelName;
-
         const url = `${this.BASE_URL}/models/${cleanModelName}:generateContent?key=${apiKey}`;
 
         // Model-agnostic prompt focused on logical analysis
@@ -115,7 +82,9 @@ Focus on:
 - Garbled or alien text.
 - Logic failures in background details.
 
-Output Requirement: Return ONLY valid JSON matching this schema:
+Output Requirement:
+You must output VALID JSON only. Do not wrap in markdown code blocks.
+Schema:
 {
   "is_ai_likely": boolean,
   "ai_probability": integer (0-100),
@@ -130,10 +99,8 @@ Output Requirement: Return ONLY valid JSON matching this schema:
                     { text: promptText },
                     { inline_data: { mime_type: mimeType, data: base64Image } }
                 ]
-            }],
-            generationConfig: {
-                response_mime_type: "application/json"
-            }
+            }]
+            // Removed generationConfig.response_mime_type to fix Invalid JSON payload error in v1
         };
 
         try {
@@ -147,19 +114,33 @@ Output Requirement: Return ONLY valid JSON matching this schema:
                 const errorData = await response.json().catch(() => ({}));
                 console.error('Gemini API Error:', errorData);
 
-                // Specific error handling for model not found (404)
-                if (response.status === 404) {
-                    throw new Error('MODEL_NOT_FOUND');
-                }
+                if (response.status === 404) throw new Error('MODEL_NOT_FOUND');
+                if (response.status === 403 || errorData.error?.message?.includes('API key')) throw new Error('API_KEY_INVALID');
+                if (response.status === 400 && errorData.error?.message?.includes('JSON')) throw new Error('INVALID_JSON_PAYLOAD');
 
                 throw new Error(errorData.error?.message || `API Error: ${response.status}`);
             }
 
             const data = await response.json();
-            const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            let textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
             if (!textResult) {
-                throw new Error('No response from AI.');
+                throw new Error('AI_NO_RESPONSE');
+            }
+
+            // Cleanup potential Markdown wrapping
+            textResult = textResult.trim();
+            if (textResult.startsWith('```json')) {
+                textResult = textResult.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+            } else if (textResult.startsWith('```')) {
+                textResult = textResult.replace(/^```\s*/, '').replace(/\s*```$/, '');
+            }
+
+            // Find first '{' and last '}' just in case
+            const start = textResult.indexOf('{');
+            const end = textResult.lastIndexOf('}');
+            if (start !== -1 && end !== -1) {
+                textResult = textResult.slice(start, end + 1);
             }
 
             try {
@@ -167,7 +148,7 @@ Output Requirement: Return ONLY valid JSON matching this schema:
                 return jsonResult;
             } catch (e) {
                 console.error('Failed to parse JSON:', textResult);
-                throw new Error('Invalid JSON response from AI.');
+                throw new Error('AI_PARSE_ERROR');
             }
 
         } catch (error) {

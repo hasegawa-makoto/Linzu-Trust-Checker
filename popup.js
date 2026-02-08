@@ -85,11 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resultDiv) resultDiv.style.display = 'block';
             if (imageCountElement) imageCountElement.textContent = response.count;
 
-            // Overall Status Logic
-            // If any image is >= 80% (High Risk), show Warning
-            // Else if many are undetermined (21-79%), show "Undetermined"
             const highRiskItems = response.details.filter(d => d.aiScore >= 80);
-            const undeterminedItems = response.details.filter(d => d.aiScore > 20 && d.aiScore < 80);
+            const undeterminedItems = response.details.filter(d => d.aiScore > 30 && d.aiScore < 80);
 
             let overallStatus = 'low';
             if (highRiskItems.length > 0) overallStatus = 'high';
@@ -118,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     expl.style.marginTop = '8px';
                     expl.style.textAlign = 'center';
                     expl.style.color = '#555';
-                    expl.innerHTML = 'メタデータが不足しています。<br><strong>AI視覚分析</strong>で詳しく調査できます。';
+                    expl.innerHTML = '複数の特徴が検出されました。<br><strong>AI視覚分析</strong>での確認を推奨します。';
                     aiProbContainer.appendChild(expl);
                 } else {
                     aiProbElement.textContent = '低';
@@ -127,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Populate Details with Confidence Meter
             if (response.details && response.details.length > 0 && detailsList) {
                 if (showDetailsButton) showDetailsButton.style.display = 'inline-block';
 
@@ -137,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const liContent = document.createElement('div');
 
-                    // Thumbnail & URL Row
                     const topRow = document.createElement('div');
                     topRow.style.display = 'flex';
                     topRow.style.gap = '10px';
@@ -160,16 +155,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     topRow.appendChild(urlDiv);
                     liContent.appendChild(topRow);
 
-                    // Confidence Meter
-                    // Score determines Color & Text
+                    // Image Type Badge
+                    if (item.imageType && item.imageType !== 'Unknown') {
+                        const typeBadge = document.createElement('div');
+                        typeBadge.textContent = `分類: ${item.imageType === 'Photo' ? '実写/写真' : 'イラスト/絵'}`;
+                        typeBadge.style.fontSize = '11px';
+                        typeBadge.style.color = '#666';
+                        typeBadge.style.marginBottom = '4px';
+                        typeBadge.style.background = '#f5f5f5';
+                        typeBadge.style.padding = '2px 6px';
+                        typeBadge.style.borderRadius = '4px';
+                        typeBadge.style.display = 'inline-block';
+                        liContent.appendChild(typeBadge);
+                    }
+
                     let scoreColor = '#f57c00';
-                    let scoreText = '判定保留 (データ不足)';
+                    let scoreText = '判定保留 (詳細分析推奨)';
                     if (item.aiScore >= 80) { scoreColor = '#d32f2f'; scoreText = 'AI生成の可能性が高い'; }
-                    else if (item.aiScore <= 20) { scoreColor = '#2e7d32'; scoreText = '写真/手描きの可能性が高い'; }
+                    else if (item.aiScore <= 30) {
+                        scoreColor = '#2e7d32';
+                        scoreText = item.imageType === 'Photo' ? '写真の可能性が高い' : '手描きの可能性が高い';
+                    } else {
+                        scoreText = '判定不明瞭 (特徴混在)';
+                    }
 
                     const meterContainer = document.createElement('div');
                     meterContainer.className = 'confidence-meter';
-
                     const bar = document.createElement('div');
                     bar.className = 'confidence-bar';
                     bar.style.width = `${item.aiScore}%`;
@@ -187,15 +198,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     scoreLabel.innerHTML = `<span>${scoreText}</span><span>${item.aiScore}%</span>`;
                     liContent.appendChild(scoreLabel);
 
-                    // Recommendation (If Mid-Range)
-                    if (item.aiScore > 20 && item.aiScore < 80) {
+                    if (item.aiScore > 30 && item.aiScore < 80) {
                         const rec = document.createElement('div');
                         rec.className = 'recommendation-text';
-                        rec.textContent = '判定精度を上げるために、AI視覚分析を推奨します。';
+                        rec.textContent = '特徴が混在しています。AI視覚分析で詳細を確認してください。';
                         liContent.appendChild(rec);
                     }
 
-                    // Metadata / Reasons
                     if (item.reason) {
                         const reasonDiv = document.createElement('div');
                         reasonDiv.className = 'detail-reason';
@@ -203,7 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         liContent.appendChild(reasonDiv);
                     }
 
-                    // Buttons
                     const btnRow = document.createElement('div');
                     btnRow.style.display = 'flex';
                     btnRow.style.gap = '8px';
@@ -219,6 +227,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (!item.error) {
+                        // Show AI button primarily if score is in "Yellow" range, but generally available.
+                        // Prompt: "判定が低い（黄色）場合のみ...提案" -> "Only propose... if low/yellow".
+                        // I will hide the button if score is very definitive (>90 or <10) to declutter?
+                        // Or just style it differently. User said "Only ... propose".
+                        // Let's only show the BUTTON if score is in [20, 85] range OR specifically requested.
+                        // Actually, user might want to double check high score too.
+                        // I will keep button but the RECOMMENDATION text is conditional.
+
                         const aiBtn = document.createElement('button');
                         aiBtn.className = 'ai-analysis-button';
                         aiBtn.textContent = 'AI視覚分析';

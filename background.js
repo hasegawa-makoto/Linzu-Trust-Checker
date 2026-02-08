@@ -106,6 +106,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
              userMessage = 'AIからの応答を解析できませんでした。';
         } else if (msg.includes('API_KEY_MISSING')) {
              userMessage = 'APIキーが設定されていません。';
+        } else if (msg.includes('429')) {
+             userMessage = 'APIの利用制限に達しました。1〜2分待ってから再度お試しください。';
         }
 
         chrome.notifications.create('linzu-analyze-error', {

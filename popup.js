@@ -1,161 +1,205 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const scanButton = document.getElementById('scanButton');
-  const resultDiv = document.getElementById('result');
-  const errorContainer = document.getElementById('errorContainer');
+    const scanButton = document.getElementById('scanButton');
+    const imageListContainer = document.getElementById('imageListContainer');
+    const errorContainer = document.getElementById('errorContainer');
 
-  // UI Elements
-  const aiProbElement = document.getElementById('aiProbability');
-  const aiProbContainer = document.getElementById('aiProbabilityContainer');
-  const detailsContainer = document.getElementById('detailsContainer');
-  const detailsList = document.getElementById('detailsList');
-  const imageCountElement = document.getElementById('imageCount');
-  const warningMark = document.getElementById('warningMark');
-
-  // Helper to show errors
-  function showError(msg, isHtml = false) {
-      if (resultDiv) resultDiv.style.display = 'none';
-      if (errorContainer) {
-          if (isHtml) errorContainer.innerHTML = msg;
-          else errorContainer.textContent = msg;
-          errorContainer.style.display = 'block';
-      }
-  }
-
-  // Helper to clear errors
-  function clearError() {
-      if (errorContainer) {
-          errorContainer.style.display = 'none';
-          errorContainer.textContent = '';
-      }
-  }
-
-  if (scanButton) {
-    scanButton.addEventListener('click', () => {
-      clearError();
-      if (resultDiv) resultDiv.style.display = 'none';
-
-      // 1. API Key Check
-      chrome.storage.sync.get('geminiApiKey', (data) => {
-        const apiKey = data.geminiApiKey;
-        if (!apiKey) {
-            showError('Gemini APIキーが設定されていません。<br><a href="#" id="openOptions">設定画面でAPIキーを入力してください</a>', true);
-            document.getElementById('openOptions').addEventListener('click', (e) => {
-                e.preventDefault();
-                if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
-                else window.open(chrome.runtime.getURL('options.html'));
-            });
-            return;
+    function showError(msg, isHtml = false) {
+        if (errorContainer) {
+            if (isHtml) errorContainer.innerHTML = msg;
+            else errorContainer.textContent = msg;
+            errorContainer.style.display = 'block';
         }
+    }
 
-        // 2. Scan for Main Image
-        if (imageCountElement) imageCountElement.textContent = 'スキャン中...';
-        if (resultDiv) resultDiv.style.display = 'block';
+    function clearError() {
+        if (errorContainer) {
+            errorContainer.style.display = 'none';
+            errorContainer.textContent = '';
+        }
+    }
 
-        // Hide previous results
-        if (aiProbContainer) aiProbContainer.style.display = 'none';
-        if (detailsContainer) detailsContainer.style.display = 'none';
-        if (warningMark) warningMark.style.display = 'none';
+    if (scanButton) {
+        scanButton.addEventListener('click', () => {
+            clearError();
+            if (imageListContainer) imageListContainer.innerHTML = '';
 
-        chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-            const activeTab = tabs[0];
-            if (!activeTab) return showError('アクティブなタブが見つかりません。');
+            // 1. Scan Page for Images (List Up)
+            chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+                const activeTab = tabs[0];
+                if (!activeTab) return showError('アクティブなタブが見つかりません。');
 
-            chrome.tabs.sendMessage(activeTab.id, {action: 'GET_MAIN_IMAGE'}, (response) => {
-                if (chrome.runtime.lastError) {
-                    return showError('ページとの通信に失敗しました。再読み込みしてください。');
-                }
-
-                if (!response || !response.success) {
-                    return showError(response?.error || '画像が見つかりませんでした。');
-                }
-
-                const imageUrl = response.url;
-
-                // 3. Delegate to Background Script
-                if (imageCountElement) imageCountElement.textContent = 'AI解析中... (Gemini)';
-
-                chrome.runtime.sendMessage({
-                    action: 'ANALYZE_IMAGE_REQUEST',
-                    url: imageUrl,
-                    apiKey: apiKey
-                }, (result) => {
+                chrome.tabs.sendMessage(activeTab.id, {action: 'SCAN_IMAGES'}, (response) => {
                     if (chrome.runtime.lastError) {
-                         return showError(`通信エラー: ${chrome.runtime.lastError.message}`);
+                        return showError('ページとの通信に失敗しました。再読み込みしてください。');
                     }
 
-                    if (result && result.success) {
-                         const analysis = result.data;
-
-                         // 4. Update UI with Results
-                        if (imageCountElement) imageCountElement.textContent = '分析完了';
-
-                        if (aiProbContainer) {
-                            aiProbContainer.style.display = 'block';
-                            const prob = analysis.ai_probability;
-                            aiProbElement.textContent = `${prob}%`;
-
-                            // Color coding
-                            if (prob >= 80) aiProbElement.style.color = '#d32f2f'; // Red
-                            else if (prob >= 50) aiProbElement.style.color = '#f57c00'; // Orange
-                            else aiProbElement.style.color = '#2e7d32'; // Green
-                        }
-
-                        if (detailsContainer && detailsList) {
-                            detailsContainer.style.display = 'block';
-                            detailsList.innerHTML = '';
-
-                            // Detected Type Item
-                            const typeItem = document.createElement('li');
-                            const typeLabel = document.createElement('strong');
-                            typeLabel.textContent = '検出タイプ: ';
-                            const typeValue = document.createTextNode(analysis.detected_type);
-                            typeItem.appendChild(typeLabel);
-                            typeItem.appendChild(typeValue);
-                            detailsList.appendChild(typeItem);
-
-                            // Reasons
-                            if (analysis.reasons && analysis.reasons.length > 0) {
-                                analysis.reasons.forEach(reason => {
-                                    const li = document.createElement('li');
-                                    li.textContent = reason;
-                                    detailsList.appendChild(li);
-                                });
-                            } else {
-                                const li = document.createElement('li');
-                                li.textContent = '特筆すべき理由はありません。';
-                                detailsList.appendChild(li);
-                            }
-                        }
-
-                        if (warningMark && analysis.is_ai_likely) {
-                            warningMark.style.display = 'block';
-                        } else if (warningMark) {
-                            warningMark.style.display = 'none';
-                        }
-
-                    } else {
-                        // Error Handling
-                        let userMessage = `分析エラー: ${result.error || '不明なエラー'}`;
-                        const msg = result.error || '';
-
-                        if (msg.includes('MODEL_NOT_FOUND') || msg.includes('404')) {
-                             userMessage = '現在システムを更新中です。しばらくしてから再度お試しください。';
-                        } else if (msg.includes('API_KEY_INVALID') || msg.includes('403')) {
-                             userMessage = 'APIキーが無効のようです。設定画面で再確認してください。';
-                        } else if (msg.includes('INVALID_JSON_PAYLOAD') || msg.includes('400')) {
-                             userMessage = 'APIリクエスト形式が無効です (システム更新待ち)。';
-                        } else if (msg.includes('AI_PARSE_ERROR')) {
-                             userMessage = 'AIからの応答を解析できませんでした。';
-                        } else if (msg.includes('IMAGE_FETCH_FAILED')) {
-                             userMessage = '解析データの準備に失敗しました。';
-                        }
-
-                        showError(userMessage);
+                    if (!response || !response.success) {
+                        return showError(response?.error || '画像が見つかりませんでした。');
                     }
+
+                    const images = response.images;
+                    if (!images || images.length === 0) {
+                        return showError('スキャン可能な画像が見つかりませんでした。');
+                    }
+
+                    // Render List
+                    images.forEach(img => {
+                        console.log('Rendering image:', img.url);
+                        const li = document.createElement('li');
+                        li.className = 'image-item';
+
+                        const topRow = document.createElement('div');
+                        topRow.className = 'item-top';
+
+                        const thumb = document.createElement('img');
+                        thumb.className = 'thumbnail';
+                        thumb.src = img.url;
+                        topRow.appendChild(thumb);
+
+                        const info = document.createElement('div');
+                        info.className = 'item-info';
+
+                        const urlDiv = document.createElement('div');
+                        urlDiv.className = 'item-url';
+                        urlDiv.textContent = img.url;
+                        info.appendChild(urlDiv);
+
+                        const analyzeBtn = document.createElement('button');
+                        analyzeBtn.className = 'analyze-btn';
+                        analyzeBtn.textContent = 'AI分析を実行';
+
+                        // Result Area (Hidden initially)
+                        const resultArea = document.createElement('div');
+                        resultArea.className = 'result-area';
+
+                        // Handle Analyze Click
+                        analyzeBtn.addEventListener('click', () => {
+                            analyzeImage(img.url, li, analyzeBtn, resultArea);
+                        });
+
+                        info.appendChild(analyzeBtn);
+                        topRow.appendChild(info);
+
+                        // Explicitly append both
+                        li.appendChild(topRow);
+                        li.appendChild(resultArea);
+
+                        console.log('LI HTML:', li.outerHTML);
+
+                        imageListContainer.appendChild(li);
+                    });
                 });
             });
         });
-      });
-    });
-  }
+    }
+
+    function analyzeImage(url, liElement, buttonElement, resultArea) {
+        // 1. Loading State
+        buttonElement.disabled = true;
+        buttonElement.textContent = '分析中...';
+        resultArea.style.display = 'none';
+
+        // 2. Get API Key
+        chrome.storage.sync.get('geminiApiKey', (data) => {
+            const apiKey = data.geminiApiKey;
+            if (!apiKey) {
+                buttonElement.disabled = false;
+                buttonElement.textContent = 'AI分析を実行';
+                showError('Gemini APIキーが設定されていません。<br><a href="#" id="openOptions">設定画面でAPIキーを入力してください</a>', true);
+
+                const link = document.getElementById('openOptions');
+                if(link) {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
+                        else window.open(chrome.runtime.getURL('options.html'));
+                    });
+                }
+                return;
+            }
+
+            // 3. Request Analysis from Background
+            chrome.runtime.sendMessage({
+                action: 'ANALYZE_IMAGE_REQUEST',
+                url: url,
+                apiKey: apiKey
+            }, (result) => {
+                buttonElement.disabled = false;
+                buttonElement.textContent = '再分析';
+
+                if (chrome.runtime.lastError) {
+                    showError(`通信エラー: ${chrome.runtime.lastError.message}`);
+                    return;
+                }
+
+                if (result && result.success) {
+                    const analysis = result.data;
+                    renderResult(resultArea, analysis);
+                } else {
+                    // Handle Errors (e.g., 429)
+                    let userMessage = `エラー: ${result.error || '不明なエラー'}`;
+                    const err = result.error || '';
+
+                    if (err.includes('429')) {
+                        userMessage = 'APIの利用制限に達しました。1〜2分待ってから再度お試しください。';
+                    } else if (err.includes('MODEL_NOT_FOUND')) {
+                        userMessage = 'システム更新中です。後ほどお試しください。';
+                    } else if (err.includes('INVALID_JSON')) {
+                        userMessage = '解析データの準備に失敗しました。';
+                    }
+
+                    resultArea.style.display = 'block';
+                    resultArea.innerHTML = `<div style="color: #d32f2f; font-size: 11px;">${userMessage}</div>`;
+                }
+            });
+        });
+    }
+
+    function renderResult(container, analysis) {
+        container.style.display = 'block';
+        container.innerHTML = ''; // Clear previous
+
+        const probDisplay = document.createElement('div');
+        probDisplay.className = 'prob-display';
+
+        const label = document.createElement('span');
+        label.className = 'prob-label';
+        label.textContent = 'AI生成確率';
+        probDisplay.appendChild(label);
+
+        const value = document.createElement('span');
+        value.className = 'prob-value';
+        value.textContent = `${analysis.ai_probability}%`;
+
+        if (analysis.ai_probability >= 80) value.style.color = '#d32f2f'; // Red
+        else if (analysis.ai_probability >= 50) value.style.color = '#f57c00'; // Orange
+        else value.style.color = '#2e7d32'; // Green
+
+        probDisplay.appendChild(value);
+        container.appendChild(probDisplay);
+
+        // Add type info
+        const typeInfo = document.createElement('div');
+        typeInfo.style.fontSize = '11px';
+        typeInfo.style.marginBottom = '4px';
+        typeInfo.innerHTML = `<strong>タイプ:</strong> ${analysis.detected_type}`;
+        container.appendChild(typeInfo);
+
+        if (analysis.reasons && analysis.reasons.length > 0) {
+            const list = document.createElement('ul');
+            list.className = 'reasons-list';
+            analysis.reasons.forEach(r => {
+                const item = document.createElement('li');
+                item.textContent = r;
+                list.appendChild(item);
+            });
+            container.appendChild(list);
+        } else {
+            const noReason = document.createElement('div');
+            noReason.style.fontSize = '11px';
+            noReason.style.color = '#666';
+            noReason.textContent = '特筆すべき理由はありません。';
+            container.appendChild(noReason);
+        }
+    }
 });

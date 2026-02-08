@@ -12,22 +12,12 @@
       <main>
         <button id="scanButton">現在のページをスキャン</button>
 
-        <div id="errorContainer" style="display: none;"></div>
+        <div id="errorContainer"></div>
 
-        <div id="result" style="display: none;">
-          <div id="statusContainer">
-             <div id="warningMark" class="warning-icon"></div>
-             <p id="imageCount" class="status-text"></p>
-          </div>
-
-          <div id="aiProbabilityContainer" style="display: none;">
-            <p class="prob-label">AI生成確率</p>
-            <div id="aiProbability" class="prob-value"></div>
-          </div>
-
-          <div id="detailsContainer" style="display: none;">
-            <ul id="detailsList"></ul>
-          </div>
+        <div id="result">
+          <ul id="imageListContainer">
+             <!-- Images will be listed here -->
+          </ul>
         </div>
       </main>
     </div>

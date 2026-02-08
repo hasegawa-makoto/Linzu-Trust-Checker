@@ -3,23 +3,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const resultDiv = document.getElementById('result');
   const errorContainer = document.getElementById('errorContainer');
 
-  const imageCountElement = document.getElementById('imageCount');
-  const aiProbContainer = document.getElementById('aiProbabilityContainer');
+  // UI Elements
   const aiProbElement = document.getElementById('aiProbability');
-  const warningMark = document.getElementById('warningMark');
-
-  const showDetailsButton = document.getElementById('showDetailsButton');
+  const aiProbContainer = document.getElementById('aiProbabilityContainer');
   const detailsContainer = document.getElementById('detailsContainer');
   const detailsList = document.getElementById('detailsList');
+  const imageCountElement = document.getElementById('imageCount'); // Reused for status text if needed or hidden
+  const warningMark = document.getElementById('warningMark');
 
-  function showError(msg) {
+  // Helper to show errors
+  function showError(msg, isHtml = false) {
       if (resultDiv) resultDiv.style.display = 'none';
       if (errorContainer) {
-          errorContainer.textContent = msg;
+          if (isHtml) errorContainer.innerHTML = msg;
+          else errorContainer.textContent = msg;
           errorContainer.style.display = 'block';
       }
   }
 
+  // Helper to clear errors
   function clearError() {
       if (errorContainer) {
           errorContainer.style.display = 'none';
@@ -27,239 +29,124 @@ document.addEventListener('DOMContentLoaded', () => {
       }
   }
 
+  // Helper to fetch and convert image to base64
   async function prepareImage(imageUrl) {
-      const response = await fetch(imageUrl);
-      if (!response.ok) throw new Error('Failed to fetch image.');
-      const blob = await response.blob();
-      const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result.split(',')[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-      });
-      return { base64, mimeType: blob.type };
-  }
-
-  async function handleVisualAnalysis(imageUrl, apiKey, resultElement) {
       try {
-          resultElement.innerHTML = '<span class="ai-analysis-loading">分析中... (数秒かかります)</span>';
-          const { base64, mimeType } = await prepareImage(imageUrl);
-          const analysisResult = await GeminiClient.analyzeImage(apiKey, base64, mimeType);
-          resultElement.innerHTML = `<div class="ai-analysis-result"><strong>AI視覚分析結果:</strong><br>${analysisResult.replace(/\n/g, '<br>')}</div>`;
-      } catch (error) {
-          console.error('Visual Analysis Error:', error);
-          let userMessage = '現在、AI分析サービスが利用できないか、設定の確認が必要です。';
-          if (error.message.includes('API key')) userMessage = 'APIキーが無効です。設定をご確認ください。';
-          else if (error.message.includes('429')) userMessage = 'APIのリクエスト制限に達しました。';
-          else if (error.message.includes('500') || error.message.includes('503')) userMessage = 'Googleのサービスが一時的に混雑しています。';
-          resultElement.innerHTML = `<span style="color: #d32f2f; font-size: 11px;">エラー: ${userMessage}</span>`;
+          const response = await fetch(imageUrl);
+          if (!response.ok) throw new Error('Failed to fetch image.');
+          const blob = await response.blob();
+          const base64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result.split(',')[1]);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+          });
+          return { base64, mimeType: blob.type };
+      } catch (e) {
+          throw new Error('画像の取得に失敗しました。');
       }
-  }
-
-  if (showDetailsButton) {
-    showDetailsButton.addEventListener('click', () => {
-        if (detailsContainer) {
-            const isHidden = detailsContainer.style.display === 'none';
-            detailsContainer.style.display = isHidden ? 'block' : 'none';
-            showDetailsButton.textContent = isHidden ? '詳細を隠す' : '詳細を表示';
-        }
-    });
   }
 
   if (scanButton) {
     scanButton.addEventListener('click', () => {
       clearError();
       if (resultDiv) resultDiv.style.display = 'none';
-      if (detailsList) detailsList.innerHTML = '';
-      if (detailsContainer) detailsContainer.style.display = 'none';
-      if (showDetailsButton) showDetailsButton.style.display = 'none';
 
-      chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-        const activeTab = tabs[0];
-        if (!activeTab) return showError('アクティブなタブが見つかりません。');
+      // 1. API Key Check
+      chrome.storage.sync.get('geminiApiKey', (data) => {
+        const apiKey = data.geminiApiKey;
+        if (!apiKey) {
+            showError('Gemini APIキーが設定されていません。<br><a href="#" id="openOptions">設定画面でAPIキーを入力してください</a>', true);
+            document.getElementById('openOptions').addEventListener('click', (e) => {
+                e.preventDefault();
+                if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
+                else window.open(chrome.runtime.getURL('options.html'));
+            });
+            return;
+        }
 
-        chrome.tabs.sendMessage(activeTab.id, {action: 'scanImages'}, (response) => {
-          if (chrome.runtime.lastError) return showError(`エラー: ${chrome.runtime.lastError.message}`);
+        // 2. Scan for Main Image
+        if (imageCountElement) imageCountElement.textContent = 'スキャン中...';
+        if (resultDiv) resultDiv.style.display = 'block'; // Show loading state container
 
-          if (response) {
-            if (resultDiv) resultDiv.style.display = 'block';
-            if (imageCountElement) imageCountElement.textContent = response.count;
+        // Hide previous results
+        if (aiProbContainer) aiProbContainer.style.display = 'none';
+        if (detailsContainer) detailsContainer.style.display = 'none';
+        if (warningMark) warningMark.style.display = 'none';
 
-            const highRiskItems = response.details.filter(d => d.aiScore >= 80);
-            const undeterminedItems = response.details.filter(d => d.aiScore > 30 && d.aiScore < 80);
+        chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+            const activeTab = tabs[0];
+            if (!activeTab) return showError('アクティブなタブが見つかりません。');
 
-            let overallStatus = 'low';
-            if (highRiskItems.length > 0) overallStatus = 'high';
-            else if (undeterminedItems.length > 0) overallStatus = 'undetermined';
-
-            if (aiProbContainer && aiProbElement) {
-                aiProbContainer.style.display = 'block';
-                const existingExpl = document.getElementById('statusExplanation');
-                if (existingExpl) existingExpl.remove();
-
-                if (overallStatus === 'high') {
-                    aiProbElement.textContent = '高';
-                    aiProbElement.className = 'high-risk';
-                    if (warningMark) {
-                        warningMark.style.display = 'block';
-                        warningMark.classList.add('show-warning');
-                    }
-                } else if (overallStatus === 'undetermined') {
-                    aiProbElement.textContent = '判定保留 (詳細分析を推奨)';
-                    aiProbElement.className = 'status-unknown';
-                    if (warningMark) warningMark.style.display = 'none';
-                    const expl = document.createElement('p');
-                    expl.id = 'statusExplanation';
-                    expl.className = 'detail-reason';
-                    expl.style.fontSize = '12px';
-                    expl.style.marginTop = '8px';
-                    expl.style.textAlign = 'center';
-                    expl.style.color = '#555';
-                    expl.innerHTML = '複数の特徴が検出されました。<br><strong>AI視覚分析</strong>での確認を推奨します。';
-                    aiProbContainer.appendChild(expl);
-                } else {
-                    aiProbElement.textContent = '低';
-                    aiProbElement.className = 'low-risk';
-                    if (warningMark) warningMark.style.display = 'none';
+            chrome.tabs.sendMessage(activeTab.id, {action: 'GET_MAIN_IMAGE'}, async (response) => {
+                if (chrome.runtime.lastError) {
+                    return showError('ページとの通信に失敗しました。再読み込みしてください。');
                 }
-            }
 
-            if (response.details && response.details.length > 0 && detailsList) {
-                if (showDetailsButton) showDetailsButton.style.display = 'inline-block';
+                if (!response || !response.success) {
+                    return showError(response?.error || '画像が見つかりませんでした。');
+                }
 
-                response.details.forEach(item => {
-                    const li = document.createElement('li');
-                    li.className = 'detail-item';
+                const imageUrl = response.url;
 
-                    const liContent = document.createElement('div');
+                // 3. Prepare and Send to API
+                try {
+                    if (imageCountElement) imageCountElement.textContent = 'AI解析中... (Gemini 1.5 Flash)';
 
-                    const topRow = document.createElement('div');
-                    topRow.style.display = 'flex';
-                    topRow.style.gap = '10px';
-                    topRow.style.marginBottom = '10px';
+                    const { base64, mimeType } = await prepareImage(imageUrl);
+                    const analysis = await GeminiClient.analyzeImage(apiKey, base64, mimeType);
 
-                    const thumb = document.createElement('img');
-                    thumb.src = item.url;
-                    thumb.style.width = '50px';
-                    thumb.style.height = '50px';
-                    thumb.style.objectFit = 'cover';
-                    thumb.style.borderRadius = '4px';
-                    thumb.style.border = '1px solid #ddd';
-                    topRow.appendChild(thumb);
+                    // 4. Update UI with Results
+                    if (imageCountElement) imageCountElement.textContent = '分析完了';
 
-                    const urlDiv = document.createElement('div');
-                    urlDiv.className = 'detail-url';
-                    urlDiv.textContent = item.url;
-                    urlDiv.title = item.url;
-                    urlDiv.style.flex = '1';
-                    topRow.appendChild(urlDiv);
-                    liContent.appendChild(topRow);
+                    if (aiProbContainer) {
+                        aiProbContainer.style.display = 'block';
+                        const prob = analysis.ai_probability;
+                        aiProbElement.textContent = `${prob}%`;
 
-                    // Image Type Badge
-                    if (item.imageType && item.imageType !== 'Unknown') {
-                        const typeBadge = document.createElement('div');
-                        typeBadge.textContent = `分類: ${item.imageType === 'Photo' ? '実写/写真' : 'イラスト/絵'}`;
-                        typeBadge.style.fontSize = '11px';
-                        typeBadge.style.color = '#666';
-                        typeBadge.style.marginBottom = '4px';
-                        typeBadge.style.background = '#f5f5f5';
-                        typeBadge.style.padding = '2px 6px';
-                        typeBadge.style.borderRadius = '4px';
-                        typeBadge.style.display = 'inline-block';
-                        liContent.appendChild(typeBadge);
+                        // Color coding
+                        if (prob >= 80) aiProbElement.style.color = '#d32f2f'; // Red
+                        else if (prob >= 50) aiProbElement.style.color = '#f57c00'; // Orange
+                        else aiProbElement.style.color = '#2e7d32'; // Green
                     }
 
-                    let scoreColor = '#f57c00';
-                    let scoreText = '判定保留 (詳細分析推奨)';
-                    if (item.aiScore >= 80) { scoreColor = '#d32f2f'; scoreText = 'AI生成の可能性が高い'; }
-                    else if (item.aiScore <= 30) {
-                        scoreColor = '#2e7d32';
-                        scoreText = item.imageType === 'Photo' ? '写真の可能性が高い' : '手描きの可能性が高い';
-                    } else {
-                        scoreText = '判定不明瞭 (特徴混在)';
-                    }
+                    if (detailsContainer && detailsList) {
+                        detailsContainer.style.display = 'block';
+                        detailsList.innerHTML = '';
 
-                    const meterContainer = document.createElement('div');
-                    meterContainer.className = 'confidence-meter';
-                    const bar = document.createElement('div');
-                    bar.className = 'confidence-bar';
-                    bar.style.width = `${item.aiScore}%`;
-                    bar.style.backgroundColor = scoreColor;
-                    meterContainer.appendChild(bar);
-                    liContent.appendChild(meterContainer);
+                        // Detected Type Item
+                        const typeItem = document.createElement('li');
+                        const typeLabel = document.createElement('strong');
+                        typeLabel.textContent = '検出タイプ: ';
+                        const typeValue = document.createTextNode(analysis.detected_type);
+                        typeItem.appendChild(typeLabel);
+                        typeItem.appendChild(typeValue);
+                        detailsList.appendChild(typeItem);
 
-                    const scoreLabel = document.createElement('div');
-                    scoreLabel.style.display = 'flex';
-                    scoreLabel.style.justifyContent = 'space-between';
-                    scoreLabel.style.fontSize = '11px';
-                    scoreLabel.style.fontWeight = 'bold';
-                    scoreLabel.style.color = scoreColor;
-                    scoreLabel.style.marginBottom = '8px';
-                    scoreLabel.innerHTML = `<span>${scoreText}</span><span>${item.aiScore}%</span>`;
-                    liContent.appendChild(scoreLabel);
-
-                    if (item.aiScore > 30 && item.aiScore < 80) {
-                        const rec = document.createElement('div');
-                        rec.className = 'recommendation-text';
-                        rec.textContent = '特徴が混在しています。AI視覚分析で詳細を確認してください。';
-                        liContent.appendChild(rec);
-                    }
-
-                    if (item.reason) {
-                        const reasonDiv = document.createElement('div');
-                        reasonDiv.className = 'detail-reason';
-                        reasonDiv.textContent = item.reason;
-                        liContent.appendChild(reasonDiv);
-                    }
-
-                    const btnRow = document.createElement('div');
-                    btnRow.style.display = 'flex';
-                    btnRow.style.gap = '8px';
-                    btnRow.style.marginTop = '8px';
-
-                    if (!item.url.startsWith('data:')) {
-                        const lensLink = document.createElement('a');
-                        lensLink.href = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(item.url)}`;
-                        lensLink.target = '_blank';
-                        lensLink.className = 'lens-button';
-                        lensLink.textContent = 'Googleレンズ';
-                        btnRow.appendChild(lensLink);
-                    }
-
-                    if (!item.error) {
-                        // Show AI button primarily if score is in "Yellow" range, but generally available.
-                        // Prompt: "判定が低い（黄色）場合のみ...提案" -> "Only propose... if low/yellow".
-                        // I will hide the button if score is very definitive (>90 or <10) to declutter?
-                        // Or just style it differently. User said "Only ... propose".
-                        // Let's only show the BUTTON if score is in [20, 85] range OR specifically requested.
-                        // Actually, user might want to double check high score too.
-                        // I will keep button but the RECOMMENDATION text is conditional.
-
-                        const aiBtn = document.createElement('button');
-                        aiBtn.className = 'ai-analysis-button';
-                        aiBtn.textContent = 'AI視覚分析';
-                        const resDiv = document.createElement('div');
-                        aiBtn.addEventListener('click', () => {
-                            chrome.storage.sync.get('geminiApiKey', (data) => {
-                                if (!data.geminiApiKey) {
-                                    if (confirm('AI視覚分析にはGemini APIキーが必要です。\n設定画面を開きますか？')) chrome.runtime.openOptionsPage();
-                                } else {
-                                    handleVisualAnalysis(item.url, data.geminiApiKey, resDiv);
-                                }
+                        // Reasons
+                        if (analysis.reasons && analysis.reasons.length > 0) {
+                            analysis.reasons.forEach(reason => {
+                                const li = document.createElement('li');
+                                li.textContent = reason;
+                                detailsList.appendChild(li);
                             });
-                        });
-                        btnRow.appendChild(aiBtn);
-                        liContent.appendChild(btnRow);
-                        liContent.appendChild(resDiv);
-                    } else {
-                        liContent.appendChild(btnRow);
+                        } else {
+                            const li = document.createElement('li');
+                            li.textContent = '特筆すべき理由はありません。';
+                            detailsList.appendChild(li);
+                        }
                     }
 
-                    li.appendChild(liContent);
-                    detailsList.appendChild(li);
-                });
-            }
-          } else showError('応答がありません。');
+                    if (warningMark && analysis.is_ai_likely) {
+                        warningMark.style.display = 'block';
+                    } else if (warningMark) {
+                        warningMark.style.display = 'none';
+                    }
+
+                } catch (err) {
+                    showError(`分析エラー: ${err.message}`);
+                }
+            });
         });
       });
     });

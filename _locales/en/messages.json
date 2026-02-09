@@ -57,5 +57,9 @@
   "licenseInactive": { "message": "License Inactive", "description": "License status inactive" },
   "licenseSuccess": { "message": "License Activated Successfully!", "description": "Activation success message" },
   "licenseInvalid": { "message": "Invalid License Key", "description": "Activation failure message" },
-  "linkPurchase": { "message": "Purchase License", "description": "Link to buy license" }
+  "linkPurchase": { "message": "Purchase License", "description": "Link to buy license" },
+
+  "alertCheckSettings": { "message": "Please check the extension icon > Settings.", "description": "Alert message for settings check" },
+  "unknownType": { "message": "Unknown", "description": "Fallback text for type" },
+  "unknownError": { "message": "Unknown Error", "description": "Fallback text for error" }
 }

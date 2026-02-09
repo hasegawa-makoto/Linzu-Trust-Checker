@@ -72,6 +72,9 @@ class GeminiClient {
         // Determine language name for prompt
         const langName = lang === 'en' ? 'English' : 'Japanese';
 
+        // Dynamic instruction for English
+        const strictLangInstruction = lang === 'en' ? 'Respond strictly in English.' : '';
+
         const promptText = `
 Role: You are an expert image forensics analyst.
 Task: Logically analyze the provided image for artifacts characteristic of AI generation.
@@ -84,7 +87,7 @@ Focus on:
 
 Output Requirement:
 You must output VALID JSON only. Do not wrap in markdown code blocks.
-The 'reasons' and 'detected_type' must be written in ${langName}.
+The 'reasons' and 'detected_type' must be written in ${langName}. ${strictLangInstruction}
 
 Schema:
 {

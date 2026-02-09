@@ -87,7 +87,7 @@ function createOverlay(data, isError) {
                 border: 'none', borderRadius: '4px', cursor: 'pointer', width: '100%', fontSize: '12px'
             });
             btn.addEventListener('click', () => {
-                alert('Please check the extension icon > Settings.');
+                alert(chrome.i18n.getMessage('alertCheckSettings'));
             });
             content.appendChild(btn);
         }

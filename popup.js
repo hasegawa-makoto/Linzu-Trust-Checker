@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else if (response.status === 'error') {
                 showState('error');
                 errorMsg.textContent = i18n.getMessage('statusError');
-                errorDetail.textContent = response.error || 'Unknown Error';
+                errorDetail.textContent = response.error || i18n.getMessage('unknownError');
             }
         });
     }
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         else if (analysis.ai_probability >= 50) resultProb.style.color = '#f57c00';
         else resultProb.style.color = '#2e7d32';
 
-        resultType.textContent = analysis.detected_type || 'Unknown';
+        resultType.textContent = analysis.detected_type || i18n.getMessage('unknownType');
 
         resultReasons.innerHTML = '';
         if (analysis.reasons && analysis.reasons.length > 0) {

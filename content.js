@@ -1,6 +1,8 @@
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'SHOW_RESULT') {
+  if (request.action === 'SHOW_ANALYZING') {
+      createOverlay({ type: 'analyzing', message: request.text, title: request.title }, false);
+  } else if (request.action === 'SHOW_RESULT') {
       createOverlay(request.data, false);
   } else if (request.action === 'SHOW_ERROR') {
       createOverlay(request, true);
@@ -29,6 +31,19 @@ function createOverlay(data, isError) {
         from { transform: translateX(100%); opacity: 0; }
         to { transform: translateX(0); opacity: 1; }
       }
+      .linzu-spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #0056b3;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: linzuSpin 1s linear infinite;
+        margin: 20px auto;
+      }
+      @keyframes linzuSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
     `;
     document.head.appendChild(styleSheet);
 
@@ -41,7 +56,7 @@ function createOverlay(data, isError) {
         backgroundColor: isError ? '#ffebee' : '#f8f9fa'
     });
 
-    const titleText = isError ? (data.title || chrome.i18n.getMessage('statusError')) : chrome.i18n.getMessage('extName');
+    const titleText = isError ? (data.title || chrome.i18n.getMessage('statusError')) : (data.title || chrome.i18n.getMessage('extName'));
 
     const title = document.createElement('strong');
     title.textContent = titleText;
@@ -62,7 +77,22 @@ function createOverlay(data, isError) {
     const content = document.createElement('div');
     content.style.padding = '16px';
 
-    if (isError) {
+    if (data.type === 'analyzing') {
+        // Analyzing State
+        const msg = document.createElement('div');
+        msg.textContent = data.message || chrome.i18n.getMessage('statusAnalyzing');
+        msg.style.textAlign = 'center';
+        msg.style.fontSize = '14px';
+        msg.style.color = '#333';
+        msg.style.marginBottom = '10px';
+        content.appendChild(msg);
+
+        const spinner = document.createElement('div');
+        spinner.className = 'linzu-spinner';
+        content.appendChild(spinner);
+
+    } else if (isError) {
+        // Error State
         const msg = document.createElement('div');
         msg.textContent = data.message || chrome.i18n.getMessage('statusError');
         msg.style.fontSize = '13px';

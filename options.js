@@ -89,6 +89,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateLicenseStatus(); // Re-localize status text
 
             // Re-render button texts if needed (though localizePage handles data-i18n)
+
+            // Trigger Background Update for Context Menu via message (more direct than waiting for storage event which might be slow or racey)
+            chrome.runtime.sendMessage({ action: 'UPDATE_CONTEXT_MENU_LANG', lang: newLang });
         });
     });
 

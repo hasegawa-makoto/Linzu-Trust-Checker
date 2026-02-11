@@ -9,6 +9,20 @@ let lastResult = {
     timestamp: null
 };
 
+// Simple I18n Helper for Background
+const getMessage = async (key, lang = 'en') => {
+    try {
+        const url = chrome.runtime.getURL(`_locales/${lang}/messages.json`);
+        const response = await fetch(url);
+        const messages = await response.json();
+        return messages[key]?.message || key;
+    } catch (e) {
+        // Fallback to English or key
+        if (lang !== 'en') return getMessage(key, 'en');
+        return key;
+    }
+};
+
 function updateState(newState) {
     lastResult = { ...lastResult, ...newState, timestamp: Date.now() };
     chrome.runtime.sendMessage({ action: 'STATE_UPDATED', state: lastResult }).catch(() => {});
@@ -31,6 +45,15 @@ function mapError(error) {
     else if (code === 'IMAGE_FETCH_FAILED') code = 'IMAGE_FETCH_FAILED';
     else if (code === 'API_KEY_MISSING') code = 'API_KEY_MISSING';
     else if (code === 'LICENSE_REQUIRED') code = 'LICENSE_REQUIRED';
+
+    // We need localized error messages.
+    // However, mapError is synchronous and usually called within async flow.
+    // For now, let's return keys and let content script localize or async fetch here.
+    // Or better, let's make mapError async or handle localization at the call site.
+    // Given the constraints, let's keep it simple: return keys, but we need text for notification.
+    // Chrome.i18n.getMessage works for browser locale.
+    // If we want extension locale, we need the helper.
+    // Let's rely on browser locale for notifications (standard behavior) but content script for custom overlay.
 
     let userTitle = chrome.i18n.getMessage('statusError');
     let userMessage = chrome.i18n.getMessage('errMsgNet');
@@ -76,12 +99,19 @@ function mapError(error) {
     };
 }
 
+// Initial Context Menu Creation
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: "analyze-image",
-    title: chrome.i18n.getMessage('contextMenuAnalyze'),
-    contexts: ["image"]
-  });
+    // Get stored lang or default 'en' (browser locale might be different but let's default safe)
+    chrome.storage.sync.get('outputLanguage', async (data) => {
+        const lang = data.outputLanguage || 'en'; // Default to EN if not set, or we could detect.
+        const title = await getMessage('contextMenuAnalyze', lang);
+
+        chrome.contextMenus.create({
+            id: "analyze-image",
+            title: title,
+            contexts: ["image"]
+        });
+    });
 });
 
 async function performAnalysis(url, apiKey, lang) {
@@ -117,6 +147,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'GET_LAST_RESULT') {
         sendResponse(lastResult);
     }
+
+    // Update Context Menu Language
+    if (message.action === 'UPDATE_CONTEXT_MENU_LANG') {
+        const lang = message.lang;
+        (async () => {
+             const title = await getMessage('contextMenuAnalyze', lang);
+             chrome.contextMenus.update("analyze-image", { title: title });
+        })();
+    }
+
     if (message.action === 'ANALYZE_IMAGE_REQUEST') {
         // Manual Request from Popup (Check License Here Too)
         (async () => {
@@ -142,17 +182,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "analyze-image") {
     try {
-        // 1. Validate License First
+        // 1. Get Settings & Lang first to show immediate UI
+        const data = await chrome.storage.sync.get(['geminiApiKey', 'outputLanguage']);
+        const apiKey = data.geminiApiKey;
+        const lang = data.outputLanguage || 'ja'; // Default fallback
+
+        // 2. IMMEDIATE UI FEEDBACK: Show "Analyzing..." Modal
+        const analyzingTitle = await getMessage('extName', lang);
+        const analyzingMsg = await getMessage('statusAnalyzing', lang);
+
+        notifyContentScript(tab.id, {
+            action: 'SHOW_ANALYZING',
+            text: analyzingMsg,
+            title: analyzingTitle
+        });
+
+        // 3. Validate License
         const hasLicense = await LicenseManager.validate();
         if (!hasLicense) {
             const err = new Error('License Required');
             err.code = 'LICENSE_REQUIRED';
             throw err;
         }
-
-        const data = await chrome.storage.sync.get(['geminiApiKey', 'outputLanguage']);
-        const apiKey = data.geminiApiKey;
-        const lang = data.outputLanguage || 'ja';
 
         if (!apiKey) {
             const err = new Error('API Key Missing');
@@ -162,11 +213,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
         updateState({ status: 'analyzing', imageUrl: info.srcUrl, error: null, data: null });
 
+        // Use browser locale for notification or custom?
+        // Notifications are system level, keeping browser locale is often safer for system consistency,
+        // but user asked for language consistency. Let's use custom lang for notification too if possible.
+        // Chrome.i18n.getMessage is strictly browser locale.
+        // We can fetch message manually.
+
         chrome.notifications.create('linzu-start', {
             type: 'basic',
             iconUrl: 'icons/icon128.png',
-            title: chrome.i18n.getMessage('extName'),
-            message: chrome.i18n.getMessage('statusAnalyzing'),
+            title: analyzingTitle,
+            message: analyzingMsg,
             priority: 0
         });
 
@@ -176,12 +233,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
         notifyContentScript(tab.id, {
             action: 'SHOW_RESULT',
-            data: analysis
+            data: analysis,
+            lang: lang // Pass lang so content script can localize static labels if needed (though passed data is already localized by API)
         });
 
         const prob = analysis.ai_probability;
-        const resultTitle = `${chrome.i18n.getMessage('statusSuccess')}: ${prob}%`;
-        const resultMessage = `${analysis.detected_type}\n${analysis.reasons?.[0] || chrome.i18n.getMessage('noReasons')}`;
+        const successTitle = await getMessage('statusSuccess', lang);
+        const noReasons = await getMessage('noReasons', lang);
+        const resultTitle = `${successTitle}: ${prob}%`;
+        const resultMessage = `${analysis.detected_type}\n${analysis.reasons?.[0] || noReasons}`;
 
         chrome.notifications.create('linzu-success', {
             type: 'basic',
@@ -198,13 +258,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
         updateState({ status: 'error', error: structuredError.message });
 
+        // Fetch localized error strings for the custom lang if needed,
+        // but mapError currently returns browser locale strings.
+        // For strict consistency, mapError should also support async fetching or accept lang.
+        // Let's settle for browser locale for errors for now as they are system/network level often.
+        // Or better, let's try to get custom title/message for the overlay.
+
         notifyContentScript(tab.id, {
             action: 'SHOW_ERROR',
             ...structuredError
         });
 
-        // Don't show redundant notification if modal is likely shown,
-        // but for critical errors (License/Auth), notification is good backup.
         chrome.notifications.create('linzu-error', {
             type: 'basic',
             iconUrl: 'icons/icon128.png',
@@ -218,11 +282,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         }
 
         if (structuredError.code === 'LICENSE_REQUIRED') {
+            const redirectTitle = await getMessage('extName', 'en'); // Fallback or detect
+            const redirectMsg = await getMessage('statusLicenseRedirect', 'en');
+
             chrome.notifications.create('linzu-redirect', {
                 type: 'basic',
                 iconUrl: 'icons/icon128.png',
-                title: chrome.i18n.getMessage('extName'),
-                message: chrome.i18n.getMessage('statusLicenseRedirect'),
+                title: redirectTitle,
+                message: redirectMsg,
                 priority: 2
             });
             setTimeout(() => {

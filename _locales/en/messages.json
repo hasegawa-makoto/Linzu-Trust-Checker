@@ -61,5 +61,7 @@
 
   "alertCheckSettings": { "message": "Please check the extension icon > Settings.", "description": "Alert message for settings check" },
   "unknownType": { "message": "Unknown", "description": "Fallback text for type" },
-  "unknownError": { "message": "Unknown Error", "description": "Fallback text for error" }
+  "unknownError": { "message": "Unknown Error", "description": "Fallback text for error" },
+  "ai_probability_label": { "message": "AI Generation Probability", "description": "Label for AI probability" },
+  "btnSaveApiKey": { "message": "Save API Key", "description": "Button to save API key" }
 }

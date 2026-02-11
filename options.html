@@ -17,7 +17,7 @@
         .status-message.error { color: #d32f2f; }
         a { color: #0056b3; text-decoration: none; }
         a:hover { text-decoration: underline; }
-        .lang-section, .license-section { text-align: left; margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
+        .section { text-align: left; margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
 
         /* License Specific */
         .license-status { font-weight: bold; margin-bottom: 8px; display: block; }
@@ -26,34 +26,17 @@
         .btn-activate { background-color: #28a745; margin-bottom: 12px; }
         .btn-activate:hover { background-color: #218838; }
         .purchase-link { font-size: 12px; margin-top: 8px; display: block; }
+
+        .save-group { display: flex; gap: 8px; align-items: center; }
+        .save-group button { width: auto; flex-grow: 1; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1 data-i18n="optionsTitle"></h1>
 
-        <!-- API Key Section -->
-        <div class="explanation">
-            <span data-i18n="optionsDesc"></span><br>
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" data-i18n="optionsGetLink"></a>
-        </div>
-
-        <label for="apiKey" data-i18n="optionsLabelKey"></label>
-        <input type="text" id="apiKey" placeholder="AIzaSy...">
-
-        <!-- License Section -->
-        <div class="license-section">
-            <label data-i18n="optionsLabelLicense"></label>
-            <span id="licenseStatus" class="license-status status-inactive" data-i18n="licenseInactive"></span>
-
-            <input type="text" id="licenseKey" placeholder="XXXX-XXXX-XXXX-XXXX">
-            <button id="activateBtn" class="btn-activate" data-i18n="btnActivate"></button>
-
-            <a href="https://linzu.lemonsqueezy.com/" target="_blank" class="purchase-link" data-i18n="linkPurchase"></a>
-        </div>
-
-        <!-- Language Section -->
-        <div class="lang-section">
+        <!-- Language Section (Top) -->
+        <div class="section" style="border-top: none; margin-top: 0; padding-top: 0;">
             <label for="languageSelect" data-i18n="optionsLabelLang"></label>
             <select id="languageSelect">
                 <option value="ja">日本語 (Japanese)</option>
@@ -61,9 +44,30 @@
             </select>
         </div>
 
-        <button id="saveButton" data-i18n="btnSave"></button>
+        <!-- License Section -->
+        <div class="section">
+            <label data-i18n="optionsLabelLicense"></label>
+            <span id="licenseStatus" class="license-status status-inactive" data-i18n="licenseInactive"></span>
 
-        <div id="status" class="status-message"></div>
+            <input type="text" id="licenseKey" placeholder="XXXX-XXXX-XXXX-XXXX">
+            <button id="activateBtn" class="btn-activate" data-i18n="btnActivate"></button>
+            <div id="licenseMsg" class="status-message" style="margin-top: 0; margin-bottom: 8px; min-height: 0;"></div>
+
+            <a href="https://linzu.lemonsqueezy.com/" target="_blank" class="purchase-link" data-i18n="linkPurchase"></a>
+        </div>
+
+        <!-- API Key Section -->
+        <div class="section">
+            <label for="apiKey" data-i18n="optionsLabelKey"></label>
+            <div class="explanation">
+                <span data-i18n="optionsDesc"></span><br>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" data-i18n="optionsGetLink"></a>
+            </div>
+
+            <input type="text" id="apiKey" placeholder="AIzaSy...">
+            <button id="saveApiKeyBtn" data-i18n="btnSave"></button>
+            <div id="apiKeyMsg" class="status-message" style="margin-top: 8px;"></div>
+        </div>
     </div>
     <script src="libs/i18n_manager.js"></script>
     <script src="libs/license_manager.js"></script>

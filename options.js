@@ -4,13 +4,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     await i18n.init();
     i18n.localizePage();
 
-    const apiKeyInput = document.getElementById('apiKey');
-    const licenseKeyInput = document.getElementById('licenseKey');
+    // UI Elements
     const languageSelect = document.getElementById('languageSelect');
-    const saveButton = document.getElementById('saveButton');
-    const activateBtn = document.getElementById('activateBtn');
-    const statusMessage = document.getElementById('status');
+
+    const licenseKeyInput = document.getElementById('licenseKey');
     const licenseStatus = document.getElementById('licenseStatus');
+    const activateBtn = document.getElementById('activateBtn');
+    const licenseMsg = document.getElementById('licenseMsg');
+
+    const apiKeyInput = document.getElementById('apiKey');
+    const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+    const apiKeyMsg = document.getElementById('apiKeyMsg');
+
     const introText = document.querySelector('.explanation');
 
     // 1. Check for Query Params (e.g., ?reason=missing_key)
@@ -23,6 +28,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         warning.textContent = i18n.getMessage('optionsGuidance');
         introText.prepend(warning);
         apiKeyInput.focus();
+    } else if (reason === 'license_required') {
+        const warning = document.createElement('div');
+        warning.className = 'status-message error';
+        warning.style.marginBottom = '16px';
+        warning.textContent = i18n.getMessage('statusLicenseRedirect');
+        // Prepend to license section or top
+        const container = document.querySelector('.container');
+        container.insertBefore(warning, container.firstChild.nextSibling.nextSibling); // After H1 and Language
+        licenseKeyInput.focus();
     }
 
     // 2. Load API Key, Language, and License
@@ -36,7 +50,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const lang = i18n.getBrowserLang();
             languageSelect.value = lang;
         }
-        // Check for mismatch
+
+        // Ensure UI matches stored language immediately
         if (data.outputLanguage && data.outputLanguage !== i18n.currentLang) {
              i18n.init(data.outputLanguage).then(() => i18n.localizePage());
         }
@@ -57,60 +72,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             licenseStatus.textContent = i18n.getMessage('licenseInactive');
             licenseStatus.className = 'license-status status-inactive';
+            activateBtn.disabled = false;
+            activateBtn.textContent = i18n.getMessage('btnActivate');
         }
     }
 
-    // Handle Language Change
+    // 3. Handle Language Change (Immediate Save & Update)
     languageSelect.addEventListener('change', async () => {
         const newLang = languageSelect.value;
-        await i18n.init(newLang);
-        i18n.localizePage();
-        updateLicenseStatus(); // Re-localize status text
+
+        // Save Language
+        chrome.storage.sync.set({ outputLanguage: newLang }, async () => {
+            // Update UI immediately
+            await i18n.init(newLang);
+            i18n.localizePage();
+            updateLicenseStatus(); // Re-localize status text
+
+            // Re-render button texts if needed (though localizePage handles data-i18n)
+        });
     });
 
-    // 3. Save Settings (API Key & Lang)
-    saveButton.addEventListener('click', () => {
+    // 4. Save API Key Independently
+    saveApiKeyBtn.addEventListener('click', () => {
         const key = apiKeyInput.value.trim();
-        const lang = languageSelect.value;
 
         if (!key) {
-            statusMessage.textContent = i18n.getMessage('optionsEnterKey');
-            statusMessage.className = 'status-message error';
+            apiKeyMsg.textContent = i18n.getMessage('optionsEnterKey');
+            apiKeyMsg.className = 'status-message error';
             return;
         }
 
-        chrome.storage.sync.set({
-            geminiApiKey: key,
-            outputLanguage: lang
-        }, () => {
-            statusMessage.textContent = i18n.getMessage('optionsSaved');
-            statusMessage.className = 'status-message success';
+        chrome.storage.sync.set({ geminiApiKey: key }, () => {
+            apiKeyMsg.textContent = i18n.getMessage('optionsSaved');
+            apiKeyMsg.className = 'status-message success';
             setTimeout(() => {
-                statusMessage.textContent = '';
+                apiKeyMsg.textContent = '';
             }, 2000);
         });
     });
 
-    // 4. Activate License
+    // 5. Activate License Independently
     activateBtn.addEventListener('click', async () => {
         const key = licenseKeyInput.value.trim();
         if (!key) return;
 
         activateBtn.disabled = true;
         activateBtn.textContent = i18n.getMessage('statusLicenseCheck');
-        statusMessage.textContent = '';
+        licenseMsg.textContent = '';
+        licenseMsg.className = 'status-message';
 
         const result = await LicenseManager.activate(key);
 
         if (result.success) {
-            statusMessage.textContent = i18n.getMessage('licenseSuccess');
-            statusMessage.className = 'status-message success';
+            licenseMsg.textContent = i18n.getMessage('licenseSuccess');
+            licenseMsg.className = 'status-message success';
             updateLicenseStatus();
         } else {
             activateBtn.disabled = false;
             activateBtn.textContent = i18n.getMessage('btnActivate');
-            statusMessage.textContent = `${i18n.getMessage('licenseInvalid')}: ${result.error}`;
-            statusMessage.className = 'status-message error';
+            licenseMsg.textContent = `${i18n.getMessage('licenseInvalid')}: ${result.error}`;
+            licenseMsg.className = 'status-message error';
         }
     });
 });

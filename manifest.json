@@ -30,6 +30,11 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"]
+    },
+    {
+      "matches": ["*://twitter.com/*", "*://x.com/*"],
+      "js": ["libs/twitter_logic.js"],
+      "run_at": "document_end"
     }
   ]
 }

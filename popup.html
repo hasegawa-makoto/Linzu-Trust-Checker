@@ -3,60 +3,101 @@
   <head>
     <meta charset="utf-8">
     <link rel="stylesheet" href="styles.css">
+    <style>
+      /* New UI for Filter Settings */
+      body { width: 320px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 0; }
+      .header { background-color: #0056b3; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+      .header h1 { font-size: 16px; margin: 0; }
+      .license-badge { font-size: 10px; background-color: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; }
+      .license-badge.active { background-color: #28a745; }
+      .license-badge.inactive { background-color: #d32f2f; }
+
+      .main-content { padding: 16px; }
+      .section-title { font-size: 12px; font-weight: bold; color: #666; margin-bottom: 8px; text-transform: uppercase; }
+
+      .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+      .setting-label { font-size: 14px; color: #333; }
+
+      /* Toggle Switch */
+      .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+      .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+      input:checked + .slider { background-color: #0056b3; }
+      input:checked + .slider:before { transform: translateX(14px); }
+
+      /* Checkbox Style */
+      input[type="checkbox"] { transform: scale(1.2); cursor: pointer; }
+
+      /* Select Style */
+      select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px; font-size: 13px; }
+
+      .status-card { background-color: #e3f2fd; border-radius: 8px; padding: 12px; margin-top: 16px; display: none; }
+      .status-card.visible { display: block; }
+
+      footer { padding: 12px; border-top: 1px solid #eee; text-align: center; }
+      .settings-link { color: #0056b3; text-decoration: none; font-size: 12px; cursor: pointer; }
+    </style>
   </head>
   <body>
-    <div class="container">
-      <header>
-        <h1 data-i18n="extName"></h1>
-      </header>
+    <div class="header">
+      <h1 data-i18n="extName">Linzu</h1>
+      <div id="licenseBadge" class="license-badge inactive" data-i18n="licenseInactive">Inactive</div>
+    </div>
 
-      <div id="apiKeyWarning">
-        <span data-i18n="warnApiKey"></span><br>
-        <a id="openSettingsLink" data-i18n="warnApiKeyLink"></a>
+    <div class="main-content">
+      <!-- Master Switch -->
+      <div class="setting-row">
+        <span class="setting-label" data-i18n="labelMasterSwitch">Enable Filtering</span>
+        <label class="switch">
+          <input type="checkbox" id="masterSwitch">
+          <span class="slider"></span>
+        </label>
       </div>
 
-      <main>
-        <!-- Idle State -->
-        <div id="stateIdle" class="state-container visible">
-          <div class="idle-icon">🖱️</div>
-          <div class="idle-text" data-i18n="statusIdle"></div>
-        </div>
+      <div class="section-title" data-i18n="sectionFilters">Filters</div>
 
-        <!-- Analyzing State -->
-        <div id="stateAnalyzing" class="state-container">
-          <div class="spinner"></div>
-          <div class="idle-text" data-i18n="statusAnalyzing"></div>
-        </div>
+      <!-- Duplicate Filter -->
+      <div class="setting-row">
+        <span class="setting-label" data-i18n="labelDuplicate">Hide Duplicates</span>
+        <input type="checkbox" id="filterDuplicate">
+      </div>
 
-        <!-- Success State -->
-        <div id="stateSuccess" class="state-container">
-          <div class="result-card">
-            <img id="resultThumb" class="result-thumb" src="">
+      <!-- Consecutive Filter -->
+      <div class="setting-row">
+        <span class="setting-label" data-i18n="labelConsecutive">Hide Consecutive User Posts</span>
+        <input type="checkbox" id="filterConsecutive">
+      </div>
 
-            <div class="prob-label" data-i18n="ai_probability_label"></div>
-            <div id="resultProb" class="prob-value">--%</div>
+      <!-- Media Filter -->
+      <div class="setting-row">
+        <span class="setting-label" data-i18n="labelMedia">Hide Media Only (No Text)</span>
+        <input type="checkbox" id="filterMedia">
+      </div>
 
-            <div id="resultType" class="type-badge">Unknown</div>
+      <!-- Language Filter -->
+      <div class="setting-row" style="flex-direction: column; align-items: flex-start;">
+        <span class="setting-label" data-i18n="labelLangFilter">Language</span>
+        <select id="filterLang">
+          <option value="all" data-i18n="optionAll">All</option>
+          <option value="ja" data-i18n="optionJP">Japanese Only</option>
+          <option value="en" data-i18n="optionEN">English Only</option>
+        </select>
+      </div>
 
-            <ul id="resultReasons" class="reasons-list"></ul>
-          </div>
-        </div>
-
-        <!-- Error State -->
-        <div id="stateError" class="state-container">
-          <div class="error-icon">⚠️</div>
-          <div id="errorMsg" class="error-msg" data-i18n="statusError"></div>
-          <div id="errorDetail" class="error-detail"></div>
-        </div>
-      </main>
-
-      <footer>
-        <button id="settingsBtn" class="settings-btn" data-i18n="btnSettings">
-          ⚙️
-        </button>
-      </footer>
+      <!-- Image Analysis Status (Mini View) -->
+      <div id="analysisStatus" class="status-card">
+        <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Last Analysis</div>
+        <div id="analysisResult" style="font-weight: bold; color: #0056b3;">--</div>
+      </div>
     </div>
+
+    <footer>
+      <a id="openOptions" class="settings-link" data-i18n="btnSettings">Open Settings</a>
+    </footer>
+
     <script src="libs/i18n_manager.js"></script>
+    <script src="libs/license_manager.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

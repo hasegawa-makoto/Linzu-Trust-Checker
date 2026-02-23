@@ -63,5 +63,15 @@
   "unknownType": { "message": "Unknown", "description": "Fallback text for type" },
   "unknownError": { "message": "Unknown Error", "description": "Fallback text for error" },
   "ai_probability_label": { "message": "AI Generation Probability", "description": "Label for AI probability" },
-  "btnSaveApiKey": { "message": "Save API Key", "description": "Button to save API key" }
+  "btnSaveApiKey": { "message": "Save API Key", "description": "Button to save API key" },
+
+  "labelMasterSwitch": { "message": "Enable Filtering", "description": "Master switch label" },
+  "sectionFilters": { "message": "Filters", "description": "Filters section title" },
+  "labelDuplicate": { "message": "Hide Content Duplicates", "description": "Duplicate filter label" },
+  "labelConsecutive": { "message": "Hide Consecutive Posts", "description": "Consecutive user filter label" },
+  "labelMedia": { "message": "Hide Media-Only Replies", "description": "Media filter label" },
+  "labelLangFilter": { "message": "Language Filter", "description": "Language filter label" },
+  "optionAll": { "message": "Show All", "description": "Language option all" },
+  "optionJP": { "message": "Japanese Only", "description": "Language option JP" },
+  "optionEN": { "message": "English Only", "description": "Language option EN" }
 }

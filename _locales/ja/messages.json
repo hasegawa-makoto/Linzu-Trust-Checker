@@ -63,5 +63,15 @@
   "unknownType": { "message": "不明", "description": "タイプ不明" },
   "unknownError": { "message": "不明なエラー", "description": "エラー不明" },
   "ai_probability_label": { "message": "AI生成確率", "description": "AI確率のラベル" },
-  "btnSaveApiKey": { "message": "APIキーを保存", "description": "APIキー保存ボタン" }
+  "btnSaveApiKey": { "message": "APIキーを保存", "description": "APIキー保存ボタン" },
+
+  "labelMasterSwitch": { "message": "フィルター有効化", "description": "マスタースイッチ" },
+  "sectionFilters": { "message": "フィルター設定", "description": "フィルターセクション" },
+  "labelDuplicate": { "message": "重複投稿を非表示", "description": "重複フィルタ" },
+  "labelConsecutive": { "message": "同一ユーザーの連投を非表示", "description": "連投フィルタ" },
+  "labelMedia": { "message": "画像・動画のみのリプライを非表示", "description": "メディアフィルタ" },
+  "labelLangFilter": { "message": "表示言語", "description": "言語フィルタ" },
+  "optionAll": { "message": "すべて表示", "description": "言語すべて" },
+  "optionJP": { "message": "日本語のみ表示", "description": "日本語のみ" },
+  "optionEN": { "message": "英語のみ表示", "description": "英語のみ" }
 }

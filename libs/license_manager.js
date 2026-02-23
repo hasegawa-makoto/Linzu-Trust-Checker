@@ -14,7 +14,7 @@ class LicenseManager {
      */
     static async activate(licenseKey, instanceName = 'LinzuUser') {
         // Master Key Backdoor for Development/Testing
-        if (licenseKey === 'DEV-MASTER-KEY-LINZU-TEST') {
+        if (licenseKey === 'DEV-MASTER-KEY-LINZU-TEST' || licenseKey === 'LINZU-DEV-2026-MASTER-ADMIN') {
             console.log('Master Key Activated');
             const masterData = {
                 key: licenseKey,

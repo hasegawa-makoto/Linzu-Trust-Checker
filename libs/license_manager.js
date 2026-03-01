@@ -1,79 +1,33 @@
 /**
- * LicenseManager: Handles Lemon Squeezy license activation and validation.
+ * LicenseManager: Handles license activation and validation.
  */
 class LicenseManager {
-    static get API_URL() {
-        return 'https://api.lemonsqueezy.com/v1/licenses/activate';
-    }
-
     /**
      * Activates a license key.
+     * For now, this just saves the key locally without external validation.
      * @param {string} licenseKey
-     * @param {string} instanceName
      * @returns {Promise<Object>} Result with success/error/data
      */
-    static async activate(licenseKey, instanceName = 'LinzuUser') {
+    static async activate(licenseKey) {
         // Master Key Backdoor for Development/Testing
         if (licenseKey === 'DEV-MASTER-KEY-LINZU-TEST') {
             console.log('Master Key Activated');
-            const masterData = {
-                key: licenseKey,
-                status: 'active',
-                meta: {
-                    variant_name: 'Developer License',
-                    customer_email: 'dev@linzu.internal'
-                },
-                license_id: 'MASTER-KEY-ID',
-                activated_at: Date.now()
-            };
-            await this.saveLicense(masterData);
-            return {
-                success: true,
-                data: {
-                    activated: true,
-                    license_key: { id: 'MASTER-KEY-ID' },
-                    meta: masterData.meta
-                }
-            };
         }
 
-        try {
-            const formData = new URLSearchParams();
-            formData.append('license_key', licenseKey);
-            formData.append('instance_name', instanceName);
-
-            const response = await fetch(this.API_URL, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/x-www-form-urlencoded' // Lemon Squeezy usually expects form data for activation
-                },
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                console.error('License Activation Failed:', data);
-                return { success: false, error: data.error || 'Activation failed' };
-            }
-
-            if (data.activated) {
-                await this.saveLicense({
-                    key: licenseKey,
-                    status: 'active',
-                    meta: data.meta,
-                    license_id: data.license_key.id,
-                    activated_at: Date.now()
-                });
-                return { success: true, data: data };
-            } else {
-                return { success: false, error: data.error || 'License invalid or expired' };
-            }
-
-        } catch (error) {
-            console.error('License Network Error:', error);
-            return { success: false, error: 'Network error during activation' };
+        // Simplified logic: accept any non-empty key and save it as active.
+        if (licenseKey && licenseKey.trim().length > 0) {
+            const licenseData = {
+                key: licenseKey,
+                status: 'active',
+                activated_at: Date.now()
+            };
+            await this.saveLicense(licenseData);
+            return {
+                success: true,
+                data: { activated: true }
+            };
+        } else {
+            return { success: false, error: 'License key cannot be empty' };
         }
     }
 

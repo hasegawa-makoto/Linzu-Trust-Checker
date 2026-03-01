@@ -56,7 +56,14 @@
   "licenseActive": { "message": "認証済み ✅", "description": "ライセンス有効状態" },
   "licenseInactive": { "message": "未認証", "description": "ライセンス無効状態" },
   "licenseSuccess": { "message": "ライセンス認証に成功しました！", "description": "認証成功" },
-  "licenseInvalid": { "message": "無効なライセンスキーです", "description": "認証失敗" },
+  "licenseInvalid": { "message": "コードが正しくありません", "description": "認証失敗" },
+  "buyTitle": { "message": "購入方法", "description": "購入タイトル" },
+  "buyLinkText": { "message": "こちらからライセンス(500円/買い切り)を購入", "description": "購入リンクテキスト" },
+  "actTitle": { "message": "認証方法", "description": "認証タイトル" },
+  "actDesc": { "message": "決済完了後に表示されるコードを下の入力欄に貼り付け、「認証する」をクリックしてください。", "description": "認証説明" },
+
+  "errTitleUsageLimit": { "message": "利用回数制限", "description": "利用制限タイトル" },
+  "errMsgUsageLimit": { "message": "本日の無料利用枠（3回）に達しました。無制限で解析するにはライセンスを購入してください。", "description": "利用制限メッセージ" },
 
   "alertCheckSettings": { "message": "拡張機能アイコン > 設定をご確認ください。", "description": "設定確認アラート" },
   "unknownType": { "message": "不明", "description": "タイプ不明" },

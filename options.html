@@ -49,7 +49,18 @@
             <label data-i18n="optionsLabelLicense"></label>
             <span id="licenseStatus" class="license-status status-inactive" data-i18n="licenseInactive"></span>
 
-            <input type="text" id="licenseKey" placeholder="XXXX-XXXX-XXXX-XXXX">
+            <div class="explanation" style="margin-top: 12px; margin-bottom: 12px; background: #f1f3f5; padding: 12px; border-radius: 4px;">
+                <strong data-i18n="buyTitle"></strong>
+                <ul style="margin: 4px 0 12px 0; padding-left: 20px;">
+                    <li><a href="https://buy.stripe.com/test_3cI3cvfqHf2re7E4G29oc00" target="_blank" data-i18n="buyLinkText"></a></li>
+                </ul>
+                <strong data-i18n="actTitle"></strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 20px;">
+                    <li data-i18n="actDesc"></li>
+                </ul>
+            </div>
+
+            <input type="text" id="licenseKey" placeholder="LINZU_PRO_ACCESS">
             <button id="activateBtn" class="btn-activate" data-i18n="btnActivate"></button>
             <div id="licenseMsg" class="status-message" style="margin-top: 0; margin-bottom: 8px; min-height: 0;"></div>
         </div>

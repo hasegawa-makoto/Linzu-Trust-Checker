@@ -56,7 +56,14 @@
   "licenseActive": { "message": "Verified ✅", "description": "License status active" },
   "licenseInactive": { "message": "License Inactive", "description": "License status inactive" },
   "licenseSuccess": { "message": "License Activated Successfully!", "description": "Activation success message" },
-  "licenseInvalid": { "message": "Invalid License Key", "description": "Activation failure message" },
+  "licenseInvalid": { "message": "Invalid Code", "description": "Activation failure message" },
+  "buyTitle": { "message": "How to Buy", "description": "Buy title" },
+  "buyLinkText": { "message": "Purchase license (500 JPY/One-time)", "description": "Buy link text" },
+  "actTitle": { "message": "How to Activate", "description": "Activation title" },
+  "actDesc": { "message": "Paste the code displayed after payment into the field below and click 'Verify'.", "description": "Activation description" },
+
+  "errTitleUsageLimit": { "message": "Usage Limit Reached", "description": "Error title for usage limit" },
+  "errMsgUsageLimit": { "message": "Free daily limit reached (3 times). Please purchase a license to unlock unlimited analysis.", "description": "Error message for usage limit" },
 
   "alertCheckSettings": { "message": "Please check the extension icon > Settings.", "description": "Alert message for settings check" },
   "unknownType": { "message": "Unknown", "description": "Fallback text for type" },

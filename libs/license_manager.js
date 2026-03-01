@@ -3,21 +3,17 @@
  */
 class LicenseManager {
     /**
-     * Activates a license key.
-     * For now, this just saves the key locally without external validation.
+     * Activates a license key based on a hardcoded secret code for Stripe fulfillment.
      * @param {string} licenseKey
      * @returns {Promise<Object>} Result with success/error/data
      */
     static async activate(licenseKey) {
-        // Master Key Backdoor for Development/Testing
-        if (licenseKey === 'DEV-MASTER-KEY-LINZU-TEST') {
-            console.log('Master Key Activated');
-        }
+        const key = licenseKey ? licenseKey.trim() : '';
 
-        // Simplified logic: accept any non-empty key and save it as active.
-        if (licenseKey && licenseKey.trim().length > 0) {
+        // Master Key Backdoor or Valid Stripe Access Code
+        if (key === 'DEV-MASTER-KEY-LINZU-TEST' || key === 'LINZU_PRO_ACCESS') {
             const licenseData = {
-                key: licenseKey,
+                key: key,
                 status: 'active',
                 activated_at: Date.now()
             };
@@ -27,22 +23,19 @@ class LicenseManager {
                 data: { activated: true }
             };
         } else {
-            return { success: false, error: 'License key cannot be empty' };
+            return { success: false, error: 'Invalid Code' }; // Error message is localized in UI
         }
     }
 
     /**
-     * Validates the currently stored license.
-     * For now, this checks local storage. Robust implementation might re-validate with API periodically.
+     * Validates the currently stored license status.
      * @returns {Promise<boolean>} True if valid
      */
     static async validate() {
         const license = await this.getLicense();
-        if (!license || !license.key) {
+        if (!license || license.status !== 'active') {
             return false;
         }
-        // In a real app, check expiration date or re-validate against API here if needed.
-        // For MVP, existence of activated key is enough.
         return true;
     }
 

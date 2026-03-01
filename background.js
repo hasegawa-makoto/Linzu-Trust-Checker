@@ -45,6 +45,7 @@ function mapError(error) {
     else if (code === 'IMAGE_FETCH_FAILED') code = 'IMAGE_FETCH_FAILED';
     else if (code === 'API_KEY_MISSING') code = 'API_KEY_MISSING';
     else if (code === 'LICENSE_REQUIRED') code = 'LICENSE_REQUIRED';
+    else if (code === 'USAGE_LIMIT_EXCEEDED') code = 'USAGE_LIMIT_EXCEEDED';
 
     // We need localized error messages.
     // However, mapError is synchronous and usually called within async flow.
@@ -87,6 +88,10 @@ function mapError(error) {
         case 'LICENSE_REQUIRED':
             userTitle = chrome.i18n.getMessage('errTitleLicense');
             userMessage = chrome.i18n.getMessage('errMsgLicense');
+            break;
+        case 'USAGE_LIMIT_EXCEEDED':
+            userTitle = chrome.i18n.getMessage('errTitleUsageLimit');
+            userMessage = chrome.i18n.getMessage('errMsgUsageLimit');
             break;
     }
 
@@ -197,18 +202,34 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             title: analyzingTitle
         });
 
-        // 3. Validate License
-        const hasLicense = await LicenseManager.validate();
-        if (!hasLicense) {
-            const err = new Error('License Required');
-            err.code = 'LICENSE_REQUIRED';
-            throw err;
-        }
-
         if (!apiKey) {
             const err = new Error('API Key Missing');
             err.code = 'API_KEY_MISSING';
             throw err;
+        }
+
+        // 3. Validate License & Usage Limits
+        const hasLicense = await LicenseManager.validate();
+
+        if (!hasLicense) {
+            // Check daily usage limit
+            const today = new Date().toDateString();
+            const usageData = await chrome.storage.local.get('linzu_daily_usage');
+            let usage = usageData.linzu_daily_usage || { date: today, count: 0 };
+
+            if (usage.date !== today) {
+                usage = { date: today, count: 0 };
+            }
+
+            if (usage.count >= 3) {
+                const err = new Error('Usage Limit Exceeded');
+                err.code = 'USAGE_LIMIT_EXCEEDED';
+                throw err;
+            }
+
+            // Increment usage
+            usage.count += 1;
+            await chrome.storage.local.set({ 'linzu_daily_usage': usage });
         }
 
         updateState({ status: 'analyzing', imageUrl: info.srcUrl, error: null, data: null });
@@ -281,9 +302,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
              chrome.tabs.create({ url: chrome.runtime.getURL('options.html?reason=missing_key') });
         }
 
-        if (structuredError.code === 'LICENSE_REQUIRED') {
-            const redirectTitle = await getMessage('extName', 'en'); // Fallback or detect
-            const redirectMsg = await getMessage('statusLicenseRedirect', 'en');
+        if (structuredError.code === 'USAGE_LIMIT_EXCEEDED' || structuredError.code === 'LICENSE_REQUIRED') {
+            const redirectTitle = await getMessage('extName', lang);
+            const redirectMsg = await getMessage('statusLicenseRedirect', lang);
 
             chrome.notifications.create('linzu-redirect', {
                 type: 'basic',

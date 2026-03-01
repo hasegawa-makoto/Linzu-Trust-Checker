@@ -18,6 +18,7 @@ class LicenseManager {
             console.log('Master Key Activated');
             const masterData = {
                 key: licenseKey,
+                status: 'active',
                 meta: {
                     variant_name: 'Developer License',
                     customer_email: 'dev@linzu.internal'
@@ -60,6 +61,7 @@ class LicenseManager {
             if (data.activated) {
                 await this.saveLicense({
                     key: licenseKey,
+                    status: 'active',
                     meta: data.meta,
                     license_id: data.license_key.id,
                     activated_at: Date.now()

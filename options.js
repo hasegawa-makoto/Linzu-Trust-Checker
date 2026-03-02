@@ -15,8 +15,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const apiKeyInput = document.getElementById('apiKey');
     const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
     const apiKeyMsg = document.getElementById('apiKeyMsg');
+    const apiGuideText = document.getElementById('apiGuideText');
 
     const introText = document.querySelector('.explanation');
+
+    // Setup Custom Dynamic HTML Translations
+    function updateDynamicText() {
+        apiGuideText.innerHTML = i18n.getMessage('apiKeyGuideText');
+        // i18nManager handles placeholder automatically if we have data-i18n on the input,
+        // but just in case, we can ensure it here.
+        licenseKeyInput.placeholder = i18n.getMessage('licensePlaceholder');
+    }
+
+    // Initial call
+    updateDynamicText();
 
     // 1. Check for Query Params (e.g., ?reason=missing_key)
     const urlParams = new URLSearchParams(window.location.search);
@@ -87,10 +99,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             await i18n.init(newLang);
             i18n.localizePage();
             updateLicenseStatus(); // Re-localize status text
+            updateDynamicText();   // Update innerHTML guide text & placeholder
 
-            // Re-render button texts if needed (though localizePage handles data-i18n)
-
-            // Trigger Background Update for Context Menu via message (more direct than waiting for storage event which might be slow or racey)
+            // Trigger Background Update for Context Menu via message
             chrome.runtime.sendMessage({ action: 'UPDATE_CONTEXT_MENU_LANG', lang: newLang });
         });
     });

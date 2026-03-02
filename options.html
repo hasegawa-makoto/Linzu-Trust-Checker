@@ -60,7 +60,7 @@
                 </ul>
             </div>
 
-            <input type="text" id="licenseKey" placeholder="LINZU_PRO_ACCESS">
+            <input type="text" id="licenseKey" data-i18n="licensePlaceholder">
             <button id="activateBtn" class="btn-activate" data-i18n="btnActivate"></button>
             <div id="licenseMsg" class="status-message" style="margin-top: 0; margin-bottom: 8px; min-height: 0;"></div>
         </div>
@@ -70,7 +70,7 @@
             <label for="apiKey" data-i18n="optionsLabelKey"></label>
             <div class="explanation">
                 <span data-i18n="optionsDesc"></span><br>
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" data-i18n="optionsGetLink"></a>
+                <span id="apiGuideText" style="display: block; margin-top: 4px; padding: 8px; background: #f1f3f5; border-radius: 4px; font-size: 12px;"></span>
             </div>
 
             <input type="text" id="apiKey" placeholder="AIzaSy...">

@@ -51,6 +51,8 @@
   "optionsLabelLang": { "message": "表示言語 (Language)", "description": "言語選択ラベル" },
   "optionsLabelLicense": { "message": "ライセンスキー", "description": "ライセンス入力ラベル" },
   "optionsSaved": { "message": "保存しました！", "description": "保存完了" },
+  "licensePlaceholder": { "message": "コードを入力してください", "description": "ライセンス入力プレースホルダー" },
+  "apiKeyGuideText": { "message": "APIキーの取得方法： <a href=\"https://aistudio.google.com/app/apikey\" target=\"_blank\">Google AI Studio</a> で「Get API key」をクリックして無料で発行できます。", "description": "APIキー取得ガイド（リンク付き）" },
   "optionsEnterKey": { "message": "APIキーを入力してください。", "description": "バリデーション" },
   "optionsGuidance": { "message": "解析を始めるには、まずこちらにAPIキーを入力して保存してください。", "description": "誘導メッセージ" },
   "licenseActive": { "message": "認証済み ✅", "description": "ライセンス有効状態" },

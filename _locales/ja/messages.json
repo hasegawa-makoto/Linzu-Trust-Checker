@@ -71,5 +71,6 @@
   "unknownType": { "message": "不明", "description": "タイプ不明" },
   "unknownError": { "message": "不明なエラー", "description": "エラー不明" },
   "ai_probability_label": { "message": "AI生成確率", "description": "AI確率のラベル" },
-  "btnSaveApiKey": { "message": "APIキーを保存", "description": "APIキー保存ボタン" }
+  "btnSaveApiKey": { "message": "APIキーを保存", "description": "APIキー保存ボタン" },
+  "legalNotice": { "message": "特定商取引法に基づく表記", "description": "Legal notice link text" }
 }

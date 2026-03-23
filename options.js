@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const warning = document.createElement('div');
         warning.className = 'status-message error';
         warning.style.marginBottom = '16px';
+        warning.setAttribute('data-i18n', 'optionsGuidance');
         warning.textContent = i18n.getMessage('optionsGuidance');
         introText.prepend(warning);
         apiKeyInput.focus();
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const warning = document.createElement('div');
         warning.className = 'status-message error';
         warning.style.marginBottom = '16px';
+        warning.setAttribute('data-i18n', 'statusLicenseRedirect');
         warning.textContent = i18n.getMessage('statusLicenseRedirect');
         // Prepend to license section or top
         const container = document.querySelector('.container');
@@ -75,16 +77,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function updateLicenseStatus() {
         const license = await LicenseManager.getLicense();
         if (license && license.key) {
+            licenseStatus.setAttribute('data-i18n', 'licenseActive');
             licenseStatus.textContent = i18n.getMessage('licenseActive');
             licenseStatus.className = 'license-status status-active';
             licenseKeyInput.value = license.key;
             licenseKeyInput.disabled = true;
             activateBtn.disabled = true;
+            activateBtn.setAttribute('data-i18n', 'licenseActive');
             activateBtn.textContent = i18n.getMessage('licenseActive');
         } else {
+            licenseStatus.setAttribute('data-i18n', 'licenseInactive');
             licenseStatus.textContent = i18n.getMessage('licenseInactive');
             licenseStatus.className = 'license-status status-inactive';
             activateBtn.disabled = false;
+            activateBtn.setAttribute('data-i18n', 'btnActivate');
             activateBtn.textContent = i18n.getMessage('btnActivate');
         }
     }
@@ -111,16 +117,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         const key = apiKeyInput.value.trim();
 
         if (!key) {
+            apiKeyMsg.setAttribute('data-i18n', 'optionsEnterKey');
             apiKeyMsg.textContent = i18n.getMessage('optionsEnterKey');
             apiKeyMsg.className = 'status-message error';
             return;
         }
 
         chrome.storage.sync.set({ geminiApiKey: key }, () => {
+            apiKeyMsg.setAttribute('data-i18n', 'optionsSaved');
             apiKeyMsg.textContent = i18n.getMessage('optionsSaved');
             apiKeyMsg.className = 'status-message success';
             setTimeout(() => {
                 apiKeyMsg.textContent = '';
+                apiKeyMsg.removeAttribute('data-i18n');
             }, 2000);
         });
     });
@@ -131,19 +140,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!key) return;
 
         activateBtn.disabled = true;
+        activateBtn.setAttribute('data-i18n', 'statusLicenseCheck');
         activateBtn.textContent = i18n.getMessage('statusLicenseCheck');
         licenseMsg.textContent = '';
+        licenseMsg.removeAttribute('data-i18n');
         licenseMsg.className = 'status-message';
 
         const result = await LicenseManager.activate(key);
 
         if (result.success) {
+            licenseMsg.setAttribute('data-i18n', 'licenseSuccess');
             licenseMsg.textContent = i18n.getMessage('licenseSuccess');
             licenseMsg.className = 'status-message success';
             updateLicenseStatus();
         } else {
             activateBtn.disabled = false;
+            activateBtn.setAttribute('data-i18n', 'btnActivate');
             activateBtn.textContent = i18n.getMessage('btnActivate');
+            licenseMsg.removeAttribute('data-i18n'); // Complex message, remove i18n auto-update
             licenseMsg.textContent = `${i18n.getMessage('licenseInvalid')}: ${result.error}`;
             licenseMsg.className = 'status-message error';
         }
